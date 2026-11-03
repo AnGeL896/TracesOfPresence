@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "traces:block/life_echo"
+    }
+  }
+}
