@@ -15,6 +15,7 @@ public class TracesOfPresence {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         ModBlocks.BLOCKS.register(modEventBus);
+        ModItems.ITEMS.register(modEventBus);
 
         LOGGER.info("Traces of Presence has awakened.");
     }
