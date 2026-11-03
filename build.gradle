@@ -1,0 +1,74 @@
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+}
+
+group = 'ru.amir.traces'
+version = '0.1.0'
+archivesBaseName = 'TracesOfPresence'
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            mods {
+                traces {
+                    source sourceSets.main
+                }
+            }
+        }
+        client {}
+        server {
+            args '--nogui'
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.20'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: '1.20.1',
+            minecraft_version_range: '[1.20.1,1.21)',
+            forge_version: '47.4.20',
+            forge_version_range: '[47,)',
+            loader_version_range: '[47,)',
+            mod_id: 'traces',
+            mod_name: 'Traces of Presence',
+            mod_license: 'MIT',
+            mod_version: project.version,
+            mod_authors: 'Amir',
+            mod_description: 'A world that remembers the meaningful moments of your journey.'
+    ]
+    inputs.properties replaceProperties
+    filesMatching(['META-INF/mods.toml']) {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+                'Specification-Title'     : 'traces',
+                'Specification-Vendor'    : 'Amir',
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : 'Amir'
+        ])
+    }
+    finalizedBy 'reobfJar'
+}
