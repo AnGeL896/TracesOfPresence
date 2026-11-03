@@ -19,5 +19,6 @@ public class ModBlocks {
                             .strength(1.5f)
                             .sound(SoundType.AMETHYST)
                             .lightLevel(state -> 8)
+                            .noOcclusion()
                     ));
 }
