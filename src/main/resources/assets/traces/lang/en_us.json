@@ -1,4 +1,6 @@
 {
   "mod.traces.name": "Traces of Presence",
-  "mod.traces.description": "A world that remembers the meaningful moments of your journey."
+  "mod.traces.description": "A world that remembers the meaningful moments of your journey.",
+  "block.traces.life_echo": "Echo of Life",
+  "itemGroup.traces": "Traces of Presence"
 }
