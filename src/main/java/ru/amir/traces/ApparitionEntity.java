@@ -2,15 +2,24 @@ package ru.amir.traces;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.util.Mth;
+import org.joml.Vector3f;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -42,9 +51,18 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> VANISH_TICK =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DEATH_REPLAY =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> REPLAY_CROUCHING =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> REPLAY_HEAD_YAW =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
 
     private double currentWalkSpeed;
     private float previousWalkBlend;
+    private List<ReplayFrame> replayFrames = List.of();
+    private int replayElapsedTicks;
+    private boolean replayMessageSent;
 
     public ApparitionEntity(EntityType<? extends ApparitionEntity> type, Level level) {
         super(type, level);
@@ -59,6 +77,9 @@ public final class ApparitionEntity extends Entity {
         entityData.define(WALK_BLEND, 0.0F);
         entityData.define(FLARE_TICK, -1);
         entityData.define(VANISH_TICK, -1);
+        entityData.define(DEATH_REPLAY, false);
+        entityData.define(REPLAY_CROUCHING, false);
+        entityData.define(REPLAY_HEAD_YAW, 0.0F);
     }
 
     public void setDestination(BlockPos destination) {
@@ -68,6 +89,45 @@ public final class ApparitionEntity extends Entity {
 
     public boolean isWalking() {
         return entityData.get(WALKING);
+    }
+
+    public boolean isDeathReplay() {
+        return entityData.get(DEATH_REPLAY);
+    }
+
+    public boolean isReplayCrouching() {
+        return entityData.get(REPLAY_CROUCHING);
+    }
+
+    public float getReplayHeadYaw() {
+        return entityData.get(REPLAY_HEAD_YAW);
+    }
+
+    public boolean setDeathReplay(CompoundTag memory) {
+        ListTag frames = memory.getList("frames", Tag.TAG_COMPOUND);
+        if (frames.size() < 2) return false;
+        setReplayFrames(frames);
+        ReplayFrame first = replayFrames.get(0);
+        setPos(first.x(), first.y(), first.z());
+        setYRot(first.yaw());
+        setXRot(first.pitch());
+        entityData.set(REPLAY_HEAD_YAW, first.headYaw());
+        entityData.set(REPLAY_CROUCHING, first.crouching());
+        entityData.set(DEATH_REPLAY, true);
+        replayElapsedTicks = 0;
+        return true;
+    }
+
+    private void setReplayFrames(ListTag frames) {
+        List<ReplayFrame> loaded = new ArrayList<>(frames.size());
+        for (int i = 0; i < frames.size(); i++) {
+            CompoundTag frame = frames.getCompound(i);
+            loaded.add(new ReplayFrame(frame.getLong("time"), frame.getDouble("x"),
+                    frame.getDouble("y"), frame.getDouble("z"), frame.getFloat("yaw"),
+                    frame.getFloat("pitch"), frame.getFloat("head_yaw"), frame.getBoolean("crouching"),
+                    frame.getBoolean("sprinting")));
+        }
+        replayFrames = loaded;
     }
 
     public float getWalkBlend(float partialTick) {
@@ -118,12 +178,74 @@ public final class ApparitionEntity extends Entity {
         }
     }
 
+    private void tickDeathReplay() {
+        if (replayFrames.size() < 2) {
+            beginFlare();
+            return;
+        }
+
+        ReplayFrame first = replayFrames.get(0);
+        ReplayFrame last = replayFrames.get(replayFrames.size() - 1);
+        long targetTime = first.time() + replayElapsedTicks++;
+        if (targetTime >= last.time()) {
+            applyReplayFrame(last);
+            updateWalkBlend(0.0F);
+            beginFlare();
+            return;
+        }
+
+        int index = 0;
+        while (index + 1 < replayFrames.size() - 1
+                && replayFrames.get(index + 1).time() <= targetTime) {
+            index++;
+        }
+        ReplayFrame from = replayFrames.get(index);
+        ReplayFrame to = replayFrames.get(index + 1);
+        float amount = (float) (targetTime - from.time()) / Math.max(1L, to.time() - from.time());
+        double oldX = getX();
+        double oldZ = getZ();
+        double x = Mth.lerp(amount, from.x(), to.x());
+        double y = Mth.lerp(amount, from.y(), to.y());
+        double z = Mth.lerp(amount, from.z(), to.z());
+        setPos(x, y, z);
+        setYRot(Mth.rotLerp(amount, from.yaw(), to.yaw()));
+        setXRot(Mth.lerp(amount, from.pitch(), to.pitch()));
+        entityData.set(REPLAY_HEAD_YAW, Mth.rotLerp(amount, from.headYaw(), to.headYaw()));
+        entityData.set(REPLAY_CROUCHING, amount < 0.5F ? from.crouching() : to.crouching());
+
+        float movement = (float) Math.sqrt((x - oldX) * (x - oldX) + (z - oldZ) * (z - oldZ));
+        updateWalkBlend(Mth.clamp(movement / 0.025F, 0.0F, 1.0F));
+    }
+
+    private void applyReplayFrame(ReplayFrame frame) {
+        setPos(frame.x(), frame.y(), frame.z());
+        setYRot(frame.yaw());
+        setXRot(frame.pitch());
+        entityData.set(REPLAY_HEAD_YAW, frame.headYaw());
+        entityData.set(REPLAY_CROUCHING, frame.crouching());
+    }
+
     private void tickServer() {
         int vanishTick = entityData.get(VANISH_TICK);
+        if (isDeathReplay() && entityData.get(FLARE_TICK) < 0) {
+            tickDeathReplay();
+            return;
+        }
+
         if (vanishTick >= 0) {
             currentWalkSpeed = 0.0D;
             updateWalkBlend(0.0F);
-            if (tickCount - vanishTick >= VANISH_DURATION_TICKS) discard();
+            if (tickCount - vanishTick >= VANISH_DURATION_TICKS) {
+                if (isDeathReplay() && !replayMessageSent && level() instanceof ServerLevel serverLevel) {
+                    replayMessageSent = true;
+                    for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class,
+                            getBoundingBox().inflate(24.0D))) {
+                        player.displayClientMessage(Component.translatable("message.traces.death_echo_ending")
+                                .withStyle(ChatFormatting.RED), true);
+                    }
+                }
+                discard();
+            }
             return;
         }
 
@@ -175,10 +297,17 @@ public final class ApparitionEntity extends Entity {
         updateWalkBlend(0.0F);
         if (level() instanceof ServerLevel serverLevel) {
             Vec3 at = position().add(0.0D, 0.9D, 0.0D);
-            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
-                    12, 0.34D, 0.75D, 0.34D, 0.018D);
-            serverLevel.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z,
-                    5, 0.22D, 0.65D, 0.22D, 0.025D);
+            if (isDeathReplay()) {
+                DustParticleOptions redDust = new DustParticleOptions(new Vector3f(0.95F, 0.06F, 0.035F), 1.35F);
+                serverLevel.sendParticles(redDust, at.x, at.y, at.z, 28, 0.38D, 0.8D, 0.38D, 0.025D);
+                serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR,
+                        at.x, at.y, at.z, 8, 0.28D, 0.45D, 0.28D, 0.08D);
+            } else {
+                serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
+                        12, 0.34D, 0.75D, 0.34D, 0.018D);
+                serverLevel.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z,
+                        5, 0.22D, 0.65D, 0.22D, 0.025D);
+            }
         }
     }
 
@@ -188,12 +317,19 @@ public final class ApparitionEntity extends Entity {
         entityData.set(WALKING, false);
         if (level() instanceof ServerLevel serverLevel) {
             Vec3 at = position().add(0.0D, 0.9D, 0.0D);
-            serverLevel.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 14, 0.32D, 0.65D, 0.32D, 0.018D);
-            serverLevel.sendParticles(ParticleTypes.SOUL, at.x, at.y, at.z, 12, 0.24D, 0.62D, 0.24D, 0.014D);
-            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
-                    18, 0.35D, 0.8D, 0.35D, 0.022D);
-            serverLevel.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z,
-                    8, 0.24D, 0.7D, 0.24D, 0.035D);
+            if (isDeathReplay()) {
+                DustParticleOptions redDust = new DustParticleOptions(new Vector3f(0.95F, 0.04F, 0.025F), 1.15F);
+                serverLevel.sendParticles(redDust, at.x, at.y, at.z, 24, 0.34D, 0.72D, 0.34D, 0.018D);
+                serverLevel.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z,
+                        10, 0.25D, 0.55D, 0.25D, 0.015D);
+            } else {
+                serverLevel.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 14, 0.32D, 0.65D, 0.32D, 0.018D);
+                serverLevel.sendParticles(ParticleTypes.SOUL, at.x, at.y, at.z, 12, 0.24D, 0.62D, 0.24D, 0.014D);
+                serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
+                        18, 0.35D, 0.8D, 0.35D, 0.022D);
+                serverLevel.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z,
+                        8, 0.24D, 0.7D, 0.24D, 0.035D);
+            }
             serverLevel.playSound(null, blockPosition(), SoundEvents.GRASS_HIT, SoundSource.AMBIENT, 0.45F, 0.72F);
         }
     }
@@ -218,7 +354,8 @@ public final class ApparitionEntity extends Entity {
                     ? 1.0F
                     : smoothStep((160.0F - age) / 60.0F);
         float glow = getGlowIntensity(partialTick);
-        float opacity = glow > 0.0F ? 0.42F + 0.40F * glow : 0.42F;
+        float opacity = isDeathReplay() ? (glow > 0.0F ? 0.48F + 0.42F * glow : 0.48F)
+                : (glow > 0.0F ? 0.42F + 0.40F * glow : 0.42F);
         return Math.min(fadeIn, fadeOut) * opacity;
     }
 
@@ -227,12 +364,46 @@ public final class ApparitionEntity extends Entity {
         return clamped * clamped * (3.0F - 2.0F * clamped);
     }
 
-    @Override protected void readAdditionalSaveData(CompoundTag tag) { }
-    @Override protected void addAdditionalSaveData(CompoundTag tag) { }
+    @Override
+    protected void readAdditionalSaveData(CompoundTag tag) {
+        if (tag.getBoolean("traces_death_replay")) {
+            ListTag frames = tag.getList("traces_replay_frames", Tag.TAG_COMPOUND);
+            if (frames.size() >= 2) {
+                setReplayFrames(frames);
+                replayElapsedTicks = tag.getInt("traces_replay_elapsed");
+                entityData.set(DEATH_REPLAY, true);
+            }
+        }
+    }
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag tag) {
+        if (!isDeathReplay() || replayFrames.isEmpty()) return;
+        tag.putBoolean("traces_death_replay", true);
+        tag.putInt("traces_replay_elapsed", replayElapsedTicks);
+        ListTag frames = new ListTag();
+        for (ReplayFrame frame : replayFrames) {
+            CompoundTag saved = new CompoundTag();
+            saved.putLong("time", frame.time());
+            saved.putDouble("x", frame.x());
+            saved.putDouble("y", frame.y());
+            saved.putDouble("z", frame.z());
+            saved.putFloat("yaw", frame.yaw());
+            saved.putFloat("pitch", frame.pitch());
+            saved.putFloat("head_yaw", frame.headYaw());
+            saved.putBoolean("crouching", frame.crouching());
+            saved.putBoolean("sprinting", frame.sprinting());
+            frames.add(saved);
+        }
+        tag.put("traces_replay_frames", frames);
+    }
     @Override public boolean isPickable() { return false; }
     @Override public boolean isPushable() { return false; }
     @Override public boolean canBeCollidedWith() { return false; }
     @Override public Packet<ClientGamePacketListener> getAddEntityPacket() {
         return NetworkHooks.getEntitySpawningPacket(this);
     }
+
+    private record ReplayFrame(long time, double x, double y, double z, float yaw, float pitch,
+                               float headYaw, boolean crouching, boolean sprinting) { }
 }

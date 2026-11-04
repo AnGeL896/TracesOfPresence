@@ -33,7 +33,11 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         pose.translate(0.0D, 1.5D + bob, 0.0D);
         pose.mulPose(Axis.YP.rotationDegrees(180.0F - entity.getYRot()));
         pose.scale(-1.0F, -1.0F, 1.0F);
-        model.setupAnim(entity, partialTick, 0.0F, age, 0.0F, 0.0F);
+        float headYaw = entity.isDeathReplay()
+                ? Mth.wrapDegrees(entity.getReplayHeadYaw() - entity.getYRot())
+                : 0.0F;
+        float headPitch = entity.isDeathReplay() ? entity.getXRot() : 0.0F;
+        model.setupAnim(entity, partialTick, 0.0F, age, headYaw, headPitch);
         int glowLight = entity.getGlowIntensity(partialTick) > 0.02F
                 ? LightTexture.pack(15, 15)
                 : packedLight;

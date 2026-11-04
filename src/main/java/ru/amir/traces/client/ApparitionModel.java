@@ -28,6 +28,7 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     private final ModelPart rightArm;
     private final ModelPart leftLeg;
     private final ModelPart rightLeg;
+    private boolean deathReplay;
 
     public ApparitionModel(ModelPart root) {
         this.root = root;
@@ -60,6 +61,7 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     @Override
     public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks,
                           float netHeadYaw, float headPitch) {
+        deathReplay = entity instanceof ApparitionEntity apparition && apparition.isDeathReplay();
         float look = Mth.sin(ageInTicks * 0.045F) * 0.27F;
         head.yRot = netHeadYaw * ((float) Math.PI / 180.0F) + look;
         head.xRot = headPitch * ((float) Math.PI / 180.0F) + Mth.sin(ageInTicks * 0.035F) * 0.06F;
@@ -71,7 +73,11 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         float idleArmDrift = Mth.sin(ageInTicks * 0.07F) * 0.035F;
         head.zRot = Mth.sin(ageInTicks * 0.04F) * 0.02F;
         body.zRot = sway;
-        body.xRot = -0.035F * walking;
+        boolean crouching = entity instanceof ApparitionEntity apparition
+                && apparition.isDeathReplay() && apparition.isReplayCrouching();
+        body.xRot = crouching ? 0.22F : -0.035F * walking;
+        body.y = crouching ? 1.5F : 0.0F;
+        head.y = crouching ? -1.0F : 0.0F;
         leftArm.xRot = -0.10F - step * 0.24F + idleArmDrift;
         rightArm.xRot = -0.08F + step * 0.24F + Mth.sin(ageInTicks * 0.07F + 1.2F) * 0.035F;
         leftArm.zRot = 0.08F + sway;
@@ -83,6 +89,7 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     @Override
     public void renderToBuffer(PoseStack pose, VertexConsumer consumer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
-        root.render(pose, consumer, packedLight, OverlayTexture.NO_OVERLAY, 0.72F, 0.88F, 1.0F, alpha);
+        root.render(pose, consumer, packedLight, OverlayTexture.NO_OVERLAY,
+                deathReplay ? 1.0F : 0.72F, deathReplay ? 0.30F : 0.88F, deathReplay ? 0.24F : 1.0F, alpha);
     }
 }
