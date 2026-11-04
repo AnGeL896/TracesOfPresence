@@ -35,8 +35,10 @@ public final class PresenceDirector {
             if (player.isSpectator() || player.isSleeping()) continue;
             if (level.getGameTime() < player.getPersistentData().getLong(COOLDOWN_KEY)) continue;
             if (!isNight(level) || !isSuitableBiome(level, player.blockPosition())) continue;
+            BlockPos crystal = findNearbyLifeEcho(level, player.blockPosition());
+            if (crystal == null) continue;
             if (level.random.nextFloat() >= SPAWN_CHANCE_PER_CHECK) continue;
-            if (trySpawn(level, player)) {
+            if (trySpawn(level, player, crystal)) {
                 player.getPersistentData().putLong(COOLDOWN_KEY, level.getGameTime() + SPAWN_COOLDOWN_TICKS);
             }
         }
@@ -49,11 +51,10 @@ public final class PresenceDirector {
 
     private static boolean isSuitableBiome(ServerLevel level, BlockPos position) {
         var biome = level.getBiome(position);
-        return biome.is(BiomeTags.IS_FOREST) || biome.is(BiomeTags.IS_TAIGA)
-                || biome.is(Biomes.SWAMP) || biome.is(Biomes.MANGROVE_SWAMP);
+        return biome.is(BiomeTags.IS_FOREST) || biome.is(BiomeTags.IS_TAIGA);
     }
 
-    private static boolean trySpawn(ServerLevel level, ServerPlayer player) {
+    private static boolean trySpawn(ServerLevel level, ServerPlayer player, BlockPos crystal) {
         if (!level.getEntitiesOfClass(ApparitionEntity.class, player.getBoundingBox().inflate(48.0D)).isEmpty()) {
             return false;
         }
@@ -78,19 +79,13 @@ public final class PresenceDirector {
             };
             player.displayClientMessage(Component.translatable(messageKey), true);
 
-            BlockPos crystal = findNearbyLifeEcho(level, player.blockPosition());
-            if (crystal != null) {
-                Vec3 pulse = Vec3.atCenterOf(crystal).add(0.0D, 0.35D, 0.0D);
-                level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
-                        pulse.x, pulse.y, pulse.z, 8, 0.28D, 0.3D, 0.28D, 0.015D);
-                level.sendParticles(net.minecraft.core.particles.ParticleTypes.SOUL,
-                        pulse.x, pulse.y, pulse.z, 5, 0.22D, 0.25D, 0.22D, 0.008D);
-                level.playSound(null, crystal, SoundEvents.AMETHYST_BLOCK_CHIME,
-                        SoundSource.AMBIENT, 0.55F, 0.72F + level.random.nextFloat() * 0.2F);
-            } else {
-                level.playSound(null, apparition.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
-                        SoundSource.AMBIENT, 0.35F, 0.72F + level.random.nextFloat() * 0.2F);
-            }
+            Vec3 pulse = Vec3.atCenterOf(crystal).add(0.0D, 0.35D, 0.0D);
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
+                    pulse.x, pulse.y, pulse.z, 8, 0.28D, 0.3D, 0.28D, 0.015D);
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.SOUL,
+                    pulse.x, pulse.y, pulse.z, 5, 0.22D, 0.25D, 0.22D, 0.008D);
+            level.playSound(null, crystal, SoundEvents.AMETHYST_BLOCK_CHIME,
+                    SoundSource.AMBIENT, 0.55F, 0.72F + level.random.nextFloat() * 0.2F);
             return true;
         }
         return false;

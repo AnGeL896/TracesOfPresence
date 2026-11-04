@@ -20,5 +20,6 @@ public class ModBlocks {
                             .sound(SoundType.AMETHYST)
                             .lightLevel(state -> 8)
                             .noOcclusion()
+                            .noCollission()
                     ));
 }
