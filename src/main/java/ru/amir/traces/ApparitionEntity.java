@@ -350,7 +350,7 @@ public final class ApparitionEntity extends Entity {
         int vanishTick = entityData.get(VANISH_TICK);
         float fadeOut = vanishTick >= 0
                 ? 1.0F - smoothStep((age - vanishTick) / VANISH_DURATION_TICKS)
-                : entityData.get(HAS_DESTINATION)
+                : (isDeathReplay() || entityData.get(HAS_DESTINATION))
                     ? 1.0F
                     : smoothStep((160.0F - age) / 60.0F);
         float glow = getGlowIntensity(partialTick);
