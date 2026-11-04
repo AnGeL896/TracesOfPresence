@@ -114,6 +114,10 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         if (visual instanceof LivingEntity living) {
             living.setItemSlot(EquipmentSlot.MAINHAND, stackFor(echo.getKillerMainHand()));
             living.setItemSlot(EquipmentSlot.OFFHAND, stackFor(echo.getKillerOffHand()));
+            living.setItemSlot(EquipmentSlot.HEAD, stackFor(echo.getKillerHead()));
+            living.setItemSlot(EquipmentSlot.CHEST, stackFor(echo.getKillerChest()));
+            living.setItemSlot(EquipmentSlot.LEGS, stackFor(echo.getKillerLegs()));
+            living.setItemSlot(EquipmentSlot.FEET, stackFor(echo.getKillerFeet()));
             if (visual instanceof Skeleton skeleton && living.getMainHandItem().is(Items.BOW)) {
                 skeleton.startUsingItem(InteractionHand.MAIN_HAND);
             }
@@ -131,7 +135,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
                 net.minecraft.world.phys.Vec3 previous = killerPreviousPositions.put(visual, current);
                 double distance = previous == null ? 0.0D : current.distanceTo(previous);
                 float gait = Mth.clamp((float) (distance * 4.0D), 0.0F, 1.0F);
-                living.walkAnimation.update(gait, (float) (distance * 4.0D));
+                living.walkAnimation.update(gait, (float) (distance * 1.8D));
                 killerAnimationTicks.put(visual, echo.tickCount);
             }
         }

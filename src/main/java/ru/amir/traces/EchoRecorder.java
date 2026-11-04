@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -217,6 +218,10 @@ public final class EchoRecorder {
             frame.putFloat("attack_anim", entity.attackAnim);
             putHeldItem(frame, "main_hand", entity.getMainHandItem());
             putHeldItem(frame, "off_hand", entity.getOffhandItem());
+            putHeldItem(frame, "armor_head", entity.getItemBySlot(EquipmentSlot.HEAD));
+            putHeldItem(frame, "armor_chest", entity.getItemBySlot(EquipmentSlot.CHEST));
+            putHeldItem(frame, "armor_legs", entity.getItemBySlot(EquipmentSlot.LEGS));
+            putHeldItem(frame, "armor_feet", entity.getItemBySlot(EquipmentSlot.FEET));
             track.frames.addLast(frame);
             while (track.frames.size() > RECORDING_TICKS) track.frames.removeFirst();
         }
