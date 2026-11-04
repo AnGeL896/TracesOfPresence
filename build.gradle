@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'ru.amir.traces'
-version = '0.5.19'
+version = '0.5.20'
 archivesBaseName = 'TracesOfPresence'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
