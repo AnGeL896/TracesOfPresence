@@ -40,7 +40,7 @@ public final class ApparitionEntity extends Entity {
     private static final double WALK_ACCELERATION = 0.0025D;
     private static final double WALK_DECELERATION = 0.0035D;
     private static final double ARRIVAL_DISTANCE = 0.55D;
-    private static final double REPLAY_TIME_SCALE = 0.85D;
+    private static final double REPLAY_TIME_SCALE = 1.0D;
     private static final int DEATH_CUE_TICKS = 40;
 
     private static final EntityDataAccessor<BlockPos> DESTINATION =
@@ -83,6 +83,10 @@ public final class ApparitionEntity extends Entity {
     private double currentWalkSpeed;
     private float previousWalkBlend;
     private float previousReplayLimbPhase;
+    private float replayCrouchBlend;
+    private float previousReplayCrouchBlend;
+    private float replaySprintBlend;
+    private float previousReplaySprintBlend;
     private List<ReplayFrame> replayFrames = List.of();
     private double replayElapsedTime;
     private boolean replayMessageSent;
@@ -128,8 +132,12 @@ public final class ApparitionEntity extends Entity {
         return entityData.get(DEATH_REPLAY);
     }
 
-    public boolean isReplayCrouching() {
-        return entityData.get(REPLAY_CROUCHING);
+    public float getReplayCrouchBlend(float partialTick) {
+        return Mth.lerp(partialTick, previousReplayCrouchBlend, replayCrouchBlend);
+    }
+
+    public float getReplaySprintBlend(float partialTick) {
+        return Mth.lerp(partialTick, previousReplaySprintBlend, replaySprintBlend);
     }
 
     public float getReplayHeadYaw() {
@@ -218,7 +226,13 @@ public final class ApparitionEntity extends Entity {
     public void tick() {
         previousWalkBlend = entityData.get(WALK_BLEND);
         previousReplayLimbPhase = entityData.get(REPLAY_LIMB_PHASE);
+        previousReplayCrouchBlend = replayCrouchBlend;
+        previousReplaySprintBlend = replaySprintBlend;
         super.tick();
+        float targetCrouch = entityData.get(REPLAY_CROUCHING) ? 1.0F : 0.0F;
+        float targetSprint = entityData.get(REPLAY_SPRINTING) ? 1.0F : 0.0F;
+        replayCrouchBlend = Mth.approach(replayCrouchBlend, targetCrouch, 0.12F);
+        replaySprintBlend = Mth.approach(replaySprintBlend, targetSprint, 0.12F);
 
         if (!level().isClientSide) {
             tickServer();

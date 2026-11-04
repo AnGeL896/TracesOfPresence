@@ -90,7 +90,8 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         float idlePitch = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.035F) * 0.06F;
         head.xRot = headPitch * ((float) Math.PI / 180.0F) + idlePitch;
         float walking = apparition != null ? apparition.getWalkBlend(limbSwing) : 0.0F;
-        boolean sprinting = deathReplay && apparition.isReplaySprinting();
+        float crouchBlend = deathReplay ? apparition.getReplayCrouchBlend(limbSwing) : 0.0F;
+        float sprintBlend = deathReplay ? apparition.getReplaySprintBlend(limbSwing) : 0.0F;
         float sway = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.055F) * 0.04F;
         float gaitPhase = deathReplay
                 ? apparition.getReplayLimbPhase(limbSwing) * 0.6662F
@@ -99,13 +100,13 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         float idleArmDrift = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.07F) * 0.035F;
         head.zRot = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.04F) * 0.02F;
         body.zRot = sway;
-        boolean crouching = deathReplay && apparition.isReplayCrouching();
         float deathFlinch = deathReplay && apparition.getGlowIntensity(0.0F) > 0.25F
                 ? apparition.getGlowIntensity(0.0F) * 0.16F : 0.0F;
-        body.xRot = (crouching ? 0.22F : (sprinting ? -0.10F : -0.035F * walking)) - deathFlinch;
-        body.y = crouching ? 1.5F : 0.0F;
-        head.y = crouching ? -1.0F : 0.0F;
-        float armSwing = sprinting ? 0.28F : 0.24F;
+        float uprightLean = Mth.lerp(sprintBlend, -0.035F * walking, -0.10F);
+        body.xRot = Mth.lerp(crouchBlend, uprightLean, 0.22F) - deathFlinch;
+        body.y = crouchBlend * 1.5F;
+        head.y = -crouchBlend;
+        float armSwing = Mth.lerp(sprintBlend, 0.24F, 0.28F);
         float secondaryArmDrift = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.07F + 1.2F) * 0.035F;
         leftArm.xRot = -0.10F - step * armSwing + idleArmDrift;
         rightArm.xRot = -0.08F + step * armSwing + secondaryArmDrift;
