@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 1028)
+Total output lines: 84
+
 package ru.amir.traces;
 
 import net.minecraft.core.BlockPos;
@@ -5,6 +8,7 @@ import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.server.level.ServerLevel;
@@ -37,13 +41,10 @@ public final class PresenceDirector {
     }
 
     private static boolean isNight(ServerLevel level) {
-        long timeOfDay = level.getDayTime() % 24_000L;
-        return timeOfDay >= 13_000L && timeOfDay < 23_000L;
-    }
-
-    private static boolean isSuitableBiome(ServerLevel level, BlockPos position) {
+        long timeOfDay = level.getDayTime() %…28 tokens truncated…tableBiome(ServerLevel level, BlockPos position) {
         var biome = level.getBiome(position);
-        return biome.is(BiomeTags.IS_FOREST) || biome.is(BiomeTags.IS_TAIGA) || biome.is(BiomeTags.IS_SWAMP);
+        return biome.is(BiomeTags.IS_FOREST) || biome.is(BiomeTags.IS_TAIGA)
+                || biome.is(Biomes.SWAMP) || biome.is(Biomes.MANGROVE_SWAMP);
     }
 
     private static boolean trySpawn(ServerLevel level, ServerPlayer player) {
