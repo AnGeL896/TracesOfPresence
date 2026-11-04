@@ -47,7 +47,9 @@ public final class EchoRecorder {
 
     private static final int RECORDING_TICKS = 10 * 20;
     private static final int FRAME_INTERVAL_TICKS = 1;
+    private static final int ENTITY_FRAME_INTERVAL_TICKS = 2;
     private static final int MAX_FRAMES = RECORDING_TICKS / FRAME_INTERVAL_TICKS;
+    private static final int MAX_ENTITY_FRAMES = RECORDING_TICKS / ENTITY_FRAME_INTERVAL_TICKS;
     private static final int MAX_ACTIONS = 40;
 
     private static final Map<UUID, PlayerHistory> HISTORIES = new HashMap<>();
@@ -63,7 +65,9 @@ public final class EchoRecorder {
 
         PlayerHistory history = historyFor(player);
         appendFrame(history, captureFrame(player, gameTime));
-        captureNearbyLivingEntities(player, history, gameTime);
+        if (gameTime % ENTITY_FRAME_INTERVAL_TICKS == 0L) {
+            captureNearbyLivingEntities(player, history, gameTime);
+        }
         prune(history, gameTime);
     }
 
@@ -247,7 +251,7 @@ public final class EchoRecorder {
             putHeldItem(frame, "armor_legs", entity.getItemBySlot(EquipmentSlot.LEGS));
             putHeldItem(frame, "armor_feet", entity.getItemBySlot(EquipmentSlot.FEET));
             track.frames.addLast(frame);
-            while (track.frames.size() > RECORDING_TICKS) track.frames.removeFirst();
+            while (track.frames.size() > MAX_ENTITY_FRAMES) track.frames.removeFirst();
         }
         long oldestTime = gameTime - RECORDING_TICKS;
         history.entityTracks.values().forEach(track -> {
