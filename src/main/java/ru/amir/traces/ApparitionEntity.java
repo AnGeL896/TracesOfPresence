@@ -428,7 +428,7 @@ public final class ApparitionEntity extends Entity {
             default -> "message.traces.death_echo_cause";
         };
         if (!(level() instanceof ServerLevel serverLevel)) return;
-        Component message = key.endsWith("_cause")
+        var message = key.endsWith("_cause")
                 ? Component.translatable(key, Component.literal(cause)) : Component.translatable(key);
         for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class, getBoundingBox().inflate(32.0D))) {
             player.displayClientMessage(message.withStyle(ChatFormatting.RED), true);
