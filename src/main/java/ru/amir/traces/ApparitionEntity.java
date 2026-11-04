@@ -131,6 +131,8 @@ public final class ApparitionEntity extends Entity {
     private List<ReplayFrame> replayFrames = List.of();
     private List<WorkFrame> workFrames = List.of();
     private int[] workFrameDurations = new int[0];
+    private int replayFrameCursor;
+    private int killerFrameCursor;
     private int workStartTick;
     private double replayElapsedTime;
     private boolean replayMessageSent;
@@ -342,6 +344,7 @@ public final class ApparitionEntity extends Entity {
                     frame.getString("armor_feet"), frame.getBoolean("baby")));
         }
         killerFrames = loaded;
+        killerFrameCursor = 0;
     }
 
     private void setReplayFrames(ListTag frames) {
@@ -355,6 +358,7 @@ public final class ApparitionEntity extends Entity {
                     frame.getString("main_hand"), frame.getString("off_hand")));
         }
         replayFrames = loaded;
+        replayFrameCursor = 0;
     }
 
     public float getWalkBlend(float partialTick) {
@@ -511,11 +515,12 @@ public final class ApparitionEntity extends Entity {
             return;
         }
 
-        int index = 0;
+        int index = Math.min(replayFrameCursor, replayFrames.size() - 2);
         while (index + 1 < replayFrames.size() - 1
                 && replayFrames.get(index + 1).time() <= targetTime) {
             index++;
         }
+        replayFrameCursor = index;
         ReplayFrame from = replayFrames.get(index);
         ReplayFrame to = replayFrames.get(index + 1);
         float amount = (float) (targetTime - from.time()) / Math.max(1L, to.time() - from.time());
@@ -542,8 +547,9 @@ public final class ApparitionEntity extends Entity {
 
     private void updateKillerPlayback(double targetTime) {
         if (killerFrames.isEmpty()) { entityData.set(KILLER_VISIBLE, false); return; }
-        int index = 0;
+        int index = Math.min(killerFrameCursor, killerFrames.size() - 1);
         while (index + 1 < killerFrames.size() && killerFrames.get(index + 1).time() <= targetTime) index++;
+        killerFrameCursor = index;
         KillerFrame from = killerFrames.get(index);
         if (targetTime < from.time() || targetTime > from.time() + 2.0D) {
             entityData.set(KILLER_VISIBLE, false);
