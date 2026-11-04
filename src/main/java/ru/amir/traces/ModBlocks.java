@@ -15,7 +15,7 @@ public class ModBlocks {
 
     public static final RegistryObject<Block> LIFE_ECHO =
             BLOCKS.register("life_echo",
-                    () -> new Block(BlockBehaviour.Properties.of()
+                    () -> new LifeEchoBlock(BlockBehaviour.Properties.of()
                             .strength(1.5f)
                             .sound(SoundType.AMETHYST)
                             .lightLevel(state -> 8)
