@@ -40,6 +40,9 @@ import java.util.UUID;
 @Mod.EventBusSubscriber(modid = TracesOfPresence.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class EchoRecorder {
     public static final String DEATH_MEMORY_KEY = "traces_death_memory_v1";
+    public static final String WORK_MEMORY_KEY = "traces_work_memory_v1";
+    private static final int WORK_MEMORY_TICKS = 8 * 60 * 20;
+    private static final int MAX_WORK_ACTIONS = 48;
 
     private static final int RECORDING_TICKS = 10 * 20;
     private static final int FRAME_INTERVAL_TICKS = 1;
@@ -87,6 +90,7 @@ public final class EchoRecorder {
         ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
         action.putString("id", itemId.toString());
         action.putInt("count", stack.getCount());
+        putWorkContext(action, player);
         addAction(player, action);
     }
 
@@ -155,6 +159,10 @@ public final class EchoRecorder {
         if (oldData.contains(DEATH_MEMORY_KEY, Tag.TAG_COMPOUND)) {
             replacement.getPersistentData().put(DEATH_MEMORY_KEY,
                     oldData.getCompound(DEATH_MEMORY_KEY).copy());
+        }
+        if (oldData.contains(WORK_MEMORY_KEY, Tag.TAG_LIST)) {
+            replacement.getPersistentData().put(WORK_MEMORY_KEY,
+                    oldData.getList(WORK_MEMORY_KEY, Tag.TAG_COMPOUND).copy());
         }
         HISTORIES.remove(original.getUUID());
     }
@@ -258,7 +266,39 @@ public final class EchoRecorder {
         action.putInt("y", pos.getY());
         action.putInt("z", pos.getZ());
         action.putString("id", BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+        putWorkContext(action, player);
         addAction(player, action);
+    }
+
+    private static void putWorkContext(CompoundTag action, ServerPlayer player) {
+        action.putDouble("actor_x", player.getX());
+        action.putDouble("actor_y", player.getY());
+        action.putDouble("actor_z", player.getZ());
+        action.putFloat("yaw", player.getYRot());
+        putHeldItem(action, "main_hand", player.getMainHandItem());
+        putHeldItem(action, "off_hand", player.getOffhandItem());
+    }
+
+    /** Returns recent, bounded work actions used by the green echo director. */
+    public static ListTag getRecentWorkActions(ServerPlayer player) {
+        CompoundTag data = player.getPersistentData();
+        ListTag saved = data.getList(WORK_MEMORY_KEY, Tag.TAG_COMPOUND);
+        ListTag retained = new ListTag();
+        long oldest = player.level().getGameTime() - WORK_MEMORY_TICKS;
+        for (int i = 0; i < saved.size(); i++) {
+            CompoundTag action = saved.getCompound(i);
+            if (action.getLong("time") >= oldest) retained.add(action.copy());
+        }
+        while (retained.size() > MAX_WORK_ACTIONS) retained.remove(0);
+        data.put(WORK_MEMORY_KEY, retained.copy());
+        return retained;
+    }
+
+    private static void appendWorkAction(ServerPlayer player, CompoundTag action) {
+        ListTag saved = getRecentWorkActions(player);
+        saved.add(action.copy());
+        while (saved.size() > MAX_WORK_ACTIONS) saved.remove(0);
+        player.getPersistentData().put(WORK_MEMORY_KEY, saved);
     }
 
     private static void putHeldItem(CompoundTag frame, String hand, ItemStack stack) {
@@ -278,6 +318,7 @@ public final class EchoRecorder {
         prune(history, gameTime);
         history.actions.addLast(action);
         while (history.actions.size() > MAX_ACTIONS) history.actions.removeFirst();
+        appendWorkAction(player, action);
     }
 
     private static PlayerHistory historyFor(ServerPlayer player) {

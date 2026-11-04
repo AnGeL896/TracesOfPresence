@@ -109,6 +109,12 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Boolean> KILLER_BABY =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> WORK_REPLAY =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> GREEN_ACTION =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<BlockPos> GREEN_TARGET =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BLOCK_POS);
     private float killerStartDistance = 6.0F;
 
     private double currentWalkSpeed;
@@ -122,6 +128,8 @@ public final class ApparitionEntity extends Entity {
     private float previousReplayFallBlend;
     private List<KillerFrame> killerFrames = List.of();
     private List<ReplayFrame> replayFrames = List.of();
+    private List<WorkFrame> workFrames = List.of();
+    private int workStartTick;
     private double replayElapsedTime;
     private boolean replayMessageSent;
     private boolean killerMessageSent;
@@ -166,6 +174,9 @@ public final class ApparitionEntity extends Entity {
         entityData.define(KILLER_LEGS, "");
         entityData.define(KILLER_FEET, "");
         entityData.define(KILLER_BABY, false);
+        entityData.define(WORK_REPLAY, false);
+        entityData.define(GREEN_ACTION, 0);
+        entityData.define(GREEN_TARGET, BlockPos.ZERO);
     }
 
     public void setDestination(BlockPos destination) {
@@ -235,6 +246,40 @@ public final class ApparitionEntity extends Entity {
 
     public void setGreenEcho() {
         entityData.set(GREEN_ECHO, true);
+    }
+
+    public boolean isWorkReplay() { return entityData.get(WORK_REPLAY); }
+    public int getGreenAction() { return entityData.get(GREEN_ACTION); }
+    public BlockPos getGreenTarget() { return entityData.get(GREEN_TARGET); }
+
+    public boolean setWorkReplay(ListTag actions) {
+        if (actions.size() < 3) return false;
+        List<WorkFrame> loaded = new ArrayList<>(actions.size());
+        for (int i = 0; i < actions.size(); i++) {
+            CompoundTag action = actions.getCompound(i);
+            double actorX = action.getDouble("actor_x");
+            double actorY = action.getDouble("actor_y");
+            double actorZ = action.getDouble("actor_z");
+            BlockPos target = action.contains("x")
+                    ? new BlockPos(action.getInt("x"), action.getInt("y"), action.getInt("z"))
+                    : BlockPos.containing(actorX, actorY, actorZ);
+            loaded.add(new WorkFrame(actorX, actorY, actorZ, action.getFloat("yaw"),
+                    action.getString("type"), target, action.getString("id"),
+                    action.getString("main_hand"), action.getString("off_hand")));
+        }
+        workFrames = loaded;
+        WorkFrame first = workFrames.get(0);
+        setPos(first.actorX(), first.actorY(), first.actorZ());
+        setYRot(first.yaw());
+        entityData.set(GREEN_ECHO, true);
+        entityData.set(DEATH_REPLAY, false);
+        entityData.set(WORK_REPLAY, true);
+        entityData.set(GREEN_ACTION, 0);
+        entityData.set(GREEN_TARGET, first.target());
+        entityData.set(REPLAY_MAIN_HAND, first.mainHand());
+        entityData.set(REPLAY_OFF_HAND, first.offHand());
+        workStartTick = tickCount;
+        return true;
     }
 
     public boolean setDeathReplay(CompoundTag memory) {
@@ -334,24 +379,84 @@ public final class ApparitionEntity extends Entity {
                 double x = getX() + (random.nextDouble() - 0.5D) * 0.75D;
                 double y = getY() + 0.15D + random.nextDouble() * 1.55D;
                 double z = getZ() + (random.nextDouble() - 0.5D) * 0.75D;
-                level().addParticle(ParticleTypes.SOUL_FIRE_FLAME, x, y, z,
-                        (random.nextDouble() - 0.5D) * 0.018D,
-                        0.015D + random.nextDouble() * 0.025D,
-                        (random.nextDouble() - 0.5D) * 0.018D);
+                if (isGreenEcho()) {
+                    level().addParticle(ParticleTypes.HAPPY_VILLAGER, x, y, z,
+                            (random.nextDouble() - 0.5D) * 0.015D, 0.018D,
+                            (random.nextDouble() - 0.5D) * 0.015D);
+                } else {
+                    level().addParticle(ParticleTypes.SOUL_FIRE_FLAME, x, y, z,
+                            (random.nextDouble() - 0.5D) * 0.018D,
+                            0.015D + random.nextDouble() * 0.025D,
+                            (random.nextDouble() - 0.5D) * 0.018D);
+                }
             }
             if (tickCount % 2 == 0) {
-                level().addParticle(ParticleTypes.END_ROD, getX(), getY() + 0.9D, getZ(),
-                        (random.nextDouble() - 0.5D) * 0.025D, 0.025D,
+                level().addParticle(isGreenEcho() ? ParticleTypes.HAPPY_VILLAGER : ParticleTypes.END_ROD,
+                        getX(), getY() + 0.9D, getZ(), (random.nextDouble() - 0.5D) * 0.025D, 0.025D,
                         (random.nextDouble() - 0.5D) * 0.025D);
             }
         } else if (tickCount % 5 == 0 && random.nextFloat() < 0.55F) {
             double x = getX() + (random.nextDouble() - 0.5D) * 0.45D;
             double y = getY() + 0.2D + random.nextDouble() * 1.35D;
             double z = getZ() + (random.nextDouble() - 0.5D) * 0.45D;
-            level().addParticle(ParticleTypes.SOUL, x, y, z,
-                    (random.nextDouble() - 0.5D) * 0.008D,
-                    0.006D + random.nextDouble() * 0.01D,
-                    (random.nextDouble() - 0.5D) * 0.008D);
+            if (isGreenEcho()) {
+                level().addParticle(ParticleTypes.HAPPY_VILLAGER, x, y, z, 0.0D, 0.008D, 0.0D);
+            } else {
+                level().addParticle(ParticleTypes.SOUL, x, y, z,
+                        (random.nextDouble() - 0.5D) * 0.008D,
+                        0.006D + random.nextDouble() * 0.01D,
+                        (random.nextDouble() - 0.5D) * 0.008D);
+            }
+        }
+    }
+
+    private void tickWorkReplay() {
+        if (workFrames.size() < 3) { beginFlare(); return; }
+        int elapsed = tickCount - workStartTick;
+        int interval = 30;
+        if (elapsed >= workFrames.size() * interval) {
+            entityData.set(GREEN_ACTION, 0);
+            beginFlare();
+            return;
+        }
+
+        int index = Math.min(workFrames.size() - 1, elapsed / interval);
+        int localTick = elapsed % interval;
+        WorkFrame from = workFrames.get(index);
+        WorkFrame to = index + 1 < workFrames.size() ? workFrames.get(index + 1) : from;
+        float amount = smoothStep(localTick / (float) interval);
+        double oldX = getX();
+        double oldZ = getZ();
+        double x = Mth.lerp(amount, from.actorX(), to.actorX());
+        double y = Mth.lerp(amount, from.actorY(), to.actorY());
+        double z = Mth.lerp(amount, from.actorZ(), to.actorZ());
+        setPos(x, y, z);
+        setYRot(Mth.rotLerp(amount, from.yaw(), to.yaw()));
+        entityData.set(REPLAY_HEAD_YAW, getYRot());
+        entityData.set(GREEN_TARGET, from.target());
+        entityData.set(REPLAY_MAIN_HAND, from.mainHand());
+        entityData.set(REPLAY_OFF_HAND, from.offHand());
+
+        int action = localTick < 17 ? switch (from.type()) {
+            case "break" -> 1;
+            case "place" -> 2;
+            case "craft" -> 3;
+            default -> 0;
+        } : 0;
+        entityData.set(GREEN_ACTION, action);
+        float movement = (float) Math.hypot(x - oldX, z - oldZ);
+        entityData.set(REPLAY_LIMB_PHASE, entityData.get(REPLAY_LIMB_PHASE) + movement * 2.2F);
+        updateWalkBlend(Mth.clamp(movement / 0.10F, 0.0F, 1.0F));
+
+        if (action != 0 && level() instanceof ServerLevel serverLevel && tickCount % 4 == 0) {
+            double px = from.target().getX() + 0.5D;
+            double py = from.target().getY() + 0.65D;
+            double pz = from.target().getZ() + 0.5D;
+            DustParticleOptions green = new DustParticleOptions(new Vector3f(0.10F, 0.95F, 0.35F), 0.8F);
+            serverLevel.sendParticles(green, px, py, pz, 2, 0.18D, 0.18D, 0.18D, 0.008D);
+            if (action == 1) serverLevel.sendParticles(ParticleTypes.CRIT, px, py, pz, 1, 0.12D, 0.16D, 0.12D, 0.02D);
+            if (action == 2) serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, px, py, pz, 1, 0.16D, 0.2D, 0.16D, 0.005D);
+            if (action == 3) serverLevel.sendParticles(ParticleTypes.ENCHANT, px, py, pz, 2, 0.16D, 0.18D, 0.16D, 0.2D);
         }
     }
 
@@ -579,6 +684,11 @@ public final class ApparitionEntity extends Entity {
             return;
         }
 
+        if (isWorkReplay() && vanishTick < 0 && entityData.get(FLARE_TICK) < 0) {
+            tickWorkReplay();
+            return;
+        }
+
         if (vanishTick >= 0) {
             currentWalkSpeed = 0.0D;
             updateWalkBlend(0.0F);
@@ -673,6 +783,13 @@ public final class ApparitionEntity extends Entity {
                     }
                     default -> { }
                 }
+            } else if (isGreenEcho()) {
+                DustParticleOptions greenDust = new DustParticleOptions(new Vector3f(0.08F, 0.92F, 0.31F), 1.2F);
+                serverLevel.sendParticles(greenDust, at.x, at.y, at.z, 24, 0.4D, 0.75D, 0.4D, 0.02D);
+                serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, at.x, at.y, at.z,
+                        16, 0.35D, 0.75D, 0.35D, 0.015D);
+                serverLevel.sendParticles(ParticleTypes.ENCHANT, at.x, at.y, at.z,
+                        20, 0.35D, 0.8D, 0.35D, 0.08D);
             } else {
                 serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
                         12, 0.34D, 0.75D, 0.34D, 0.018D);
@@ -693,6 +810,13 @@ public final class ApparitionEntity extends Entity {
                 serverLevel.sendParticles(redDust, at.x, at.y, at.z, 24, 0.34D, 0.72D, 0.34D, 0.018D);
                 serverLevel.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z,
                         10, 0.25D, 0.55D, 0.25D, 0.015D);
+            } else if (isGreenEcho()) {
+                DustParticleOptions greenDust = new DustParticleOptions(new Vector3f(0.1F, 0.95F, 0.35F), 1.0F);
+                serverLevel.sendParticles(greenDust, at.x, at.y, at.z, 22, 0.35D, 0.7D, 0.35D, 0.018D);
+                serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, at.x, at.y, at.z,
+                        18, 0.35D, 0.7D, 0.35D, 0.01D);
+                serverLevel.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z,
+                        7, 0.2D, 0.55D, 0.2D, 0.02D);
             } else {
                 serverLevel.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 14, 0.32D, 0.65D, 0.32D, 0.018D);
                 serverLevel.sendParticles(ParticleTypes.SOUL, at.x, at.y, at.z, 12, 0.24D, 0.62D, 0.24D, 0.014D);
@@ -721,11 +845,12 @@ public final class ApparitionEntity extends Entity {
         int vanishTick = entityData.get(VANISH_TICK);
         float fadeOut = vanishTick >= 0
                 ? 1.0F - smoothStep((age - vanishTick) / VANISH_DURATION_TICKS)
-                : (isDeathReplay() || entityData.get(HAS_DESTINATION))
+                : (isDeathReplay() || isWorkReplay() || entityData.get(HAS_DESTINATION))
                     ? 1.0F
                     : smoothStep((160.0F - age) / 60.0F);
         float glow = getGlowIntensity(partialTick);
         float opacity = isDeathReplay() ? (glow > 0.0F ? 0.48F + 0.42F * glow : 0.48F)
+                : isGreenEcho() ? (glow > 0.0F ? 0.55F + 0.35F * glow : 0.55F)
                 : (glow > 0.0F ? 0.42F + 0.40F * glow : 0.42F);
         return Math.min(fadeIn, fadeOut) * opacity;
     }
@@ -779,6 +904,8 @@ public final class ApparitionEntity extends Entity {
     private record ReplayFrame(long time, double x, double y, double z, float yaw, float pitch,
                                float headYaw, boolean crouching, boolean sprinting, boolean onGround,
                                String mainHand, String offHand) { }
+    private record WorkFrame(double actorX, double actorY, double actorZ, float yaw, String type,
+                             BlockPos target, String itemId, String mainHand, String offHand) { }
     private record KillerFrame(long time, double x, double y, double z, float yaw, float pitch,
                                boolean aggressive, boolean swinging, int swingTime, float attackAnim,
                                String mainHand, String offHand, String head, String chest, String legs, String feet,

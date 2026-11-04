@@ -116,6 +116,29 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         rightArm.xRot = -0.08F + step * armSwing * (1.0F - fallBlend) + secondaryArmDrift - 0.30F * fallBlend;
         leftArm.zRot = 0.08F + sway - 0.30F * fallBlend;
         rightArm.zRot = -0.08F + sway + 0.30F * fallBlend;
+        if (apparition != null && apparition.isWorkReplay()) {
+            float beat = Mth.sin(ageInTicks * 0.72F);
+            switch (apparition.getGreenAction()) {
+                case 1 -> {
+                    rightArm.xRot = -1.72F + beat * 0.32F;
+                    rightArm.yRot = -0.08F;
+                    leftArm.xRot = -0.42F - beat * 0.12F;
+                    head.xRot += 0.10F;
+                }
+                case 2 -> {
+                    rightArm.xRot = -1.05F + beat * 0.12F;
+                    leftArm.xRot = -0.68F;
+                    rightArm.yRot = -0.10F;
+                }
+                case 3 -> {
+                    rightArm.xRot = -0.78F + beat * 0.08F;
+                    leftArm.xRot = -0.78F - beat * 0.08F;
+                    rightArm.yRot = -0.20F;
+                    leftArm.yRot = 0.20F;
+                }
+                default -> { }
+            }
+        }
         leftLeg.xRot = step * 0.34F * (1.0F - fallBlend) - 0.18F * collapse;
         rightLeg.xRot = -leftLeg.xRot - 0.08F * collapse;
         body.xRot += 0.32F * collapse;

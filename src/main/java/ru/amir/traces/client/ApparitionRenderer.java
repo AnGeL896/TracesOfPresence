@@ -54,7 +54,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         pose.translate(0.0D, 1.5D + bob, 0.0D);
         pose.mulPose(Axis.YP.rotationDegrees(180.0F - entity.getYRot()));
         pose.scale(-1.0F, -1.0F, 1.0F);
-        float headYaw = entity.isDeathReplay()
+        float headYaw = (entity.isDeathReplay() || entity.isWorkReplay())
                 ? Mth.wrapDegrees(entity.getReplayHeadYaw() - entity.getYRot())
                 : 0.0F;
         float headPitch = entity.isDeathReplay() ? entity.getXRot() : 0.0F;
@@ -64,7 +64,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
                 : packedLight;
         model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(getTextureLocation(entity))), glowLight,
                 OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, entity.getFadeAlpha(partialTick));
-        if (entity.isDeathReplay()) {
+        if (entity.isDeathReplay() || entity.isWorkReplay()) {
             renderHeldItem(entity, entity.getReplayMainHand(), 0.34F, ItemDisplayContext.THIRD_PERSON_RIGHT_HAND,
                     pose, buffers, glowLight);
             renderHeldItem(entity, entity.getReplayOffHand(), -0.34F, ItemDisplayContext.THIRD_PERSON_LEFT_HAND,

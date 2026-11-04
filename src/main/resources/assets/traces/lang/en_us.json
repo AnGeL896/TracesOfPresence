@@ -23,5 +23,8 @@
   "message.traces.death_cause_drown": "drowning",
   "message.traces.death_cause_lava": "lava",
   "message.traces.death_cause_fire": "fire",
-  "message.traces.death_cause_magic": "magic or wither"
+  "message.traces.death_cause_magic": "magic or wither",
+  "message.traces.green_echo_mining": "Someone was gathering here...",
+  "message.traces.green_echo_building": "A pair of hands remembers this place.",
+  "message.traces.green_echo_crafting": "A quiet craft still lingers."
 }
