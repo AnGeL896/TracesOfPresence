@@ -1,0 +1,37 @@
+package ru.amir.traces.client;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+import ru.amir.traces.ApparitionEntity;
+import ru.amir.traces.TracesOfPresence;
+
+public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
+    private static final ResourceLocation TEXTURE = new ResourceLocation(
+            TracesOfPresence.MOD_ID, "textures/entity/apparition.png");
+    private final ApparitionModel<ApparitionEntity> model;
+
+    public ApparitionRenderer(EntityRendererProvider.Context context) {
+        super(context);
+        model = new ApparitionModel<>(context.bakeLayer(ApparitionModel.LAYER));
+        shadowRadius = 0.0F;
+    }
+
+    @Override public void render(ApparitionEntity entity, float yaw, float partialTick, PoseStack pose,
+                                 MultiBufferSource buffers, int packedLight) {
+        pose.pushPose();
+        pose.translate(0.0D, 1.5D, 0.0D);
+        pose.scale(-1.0F, -1.0F, 1.0F);
+        model.setupAnim(entity, 0.0F, 0.0F, entity.tickCount + partialTick, 0.0F, 0.0F);
+        model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(TEXTURE)), packedLight,
+                OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, entity.getFadeAlpha(partialTick));
+        pose.popPose();
+        super.render(entity, yaw, partialTick, pose, buffers, packedLight);
+    }
+
+    @Override public ResourceLocation getTextureLocation(ApparitionEntity entity) { return TEXTURE; }
+}

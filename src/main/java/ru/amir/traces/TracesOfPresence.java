@@ -17,6 +17,7 @@ public class TracesOfPresence {
         ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
+        ModEntities.ENTITY_TYPES.register(modEventBus);
 
         LOGGER.info("Traces of Presence has awakened.");
     }
