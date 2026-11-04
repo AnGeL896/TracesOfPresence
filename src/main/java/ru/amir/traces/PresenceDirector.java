@@ -29,7 +29,7 @@ public final class PresenceDirector {
         if (level.dimension() != Level.OVERWORLD || level.getGameTime() % CHECK_INTERVAL_TICKS != 0) return;
 
         for (ServerPlayer player : level.players()) {
-            if (player.isSpectator() || player.isCreative() || player.isSleeping()) continue;
+            if (player.isSpectator() || player.isSleeping()) continue;
             if (level.getGameTime() < player.getPersistentData().getLong(COOLDOWN_KEY)) continue;
             if (!isNight(level) || !isSuitableBiome(level, player.blockPosition())) continue;
             if (level.random.nextFloat() >= SPAWN_CHANCE_PER_CHECK) continue;
