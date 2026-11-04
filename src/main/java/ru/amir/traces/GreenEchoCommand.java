@@ -63,6 +63,7 @@ public final class GreenEchoCommand {
                                   ServerPlayer player, BlockPos target, double actorOffsetX, double actorOffsetZ) {
         CompoundTag action = new CompoundTag();
         action.putLong("time", time);
+        action.putString("dimension", player.level().dimension().location().toString());
         action.putString("type", type);
         action.putString("id", id);
         action.putInt("x", target.getX());
