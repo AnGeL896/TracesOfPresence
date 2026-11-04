@@ -26,5 +26,7 @@
   "message.traces.death_cause_magic": "magic or wither",
   "message.traces.green_echo_mining": "Someone was gathering here...",
   "message.traces.green_echo_building": "A pair of hands remembers this place.",
-  "message.traces.green_echo_crafting": "A quiet craft still lingers."
+  "message.traces.green_echo_crafting": "A quiet craft still lingers.",
+  "message.traces.green_echo_test_spawned": "A green work echo rises from the memory.",
+  "message.traces.green_echo_test_busy": "An apparition is already close enough to be seen."
 }

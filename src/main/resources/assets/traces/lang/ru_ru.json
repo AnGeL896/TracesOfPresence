@@ -26,5 +26,7 @@
   "message.traces.death_cause_magic": "магия или иссушение",
   "message.traces.green_echo_mining": "Здесь кто-то добывал ресурсы…",
   "message.traces.green_echo_building": "Это место помнит чьи-то руки.",
-  "message.traces.green_echo_crafting": "Здесь ещё теплится отголосок ремесла."
+  "message.traces.green_echo_crafting": "Здесь ещё теплится отголосок ремесла.",
+  "message.traces.green_echo_test_spawned": "Отголосок зелёной памяти появился рядом.",
+  "message.traces.green_echo_test_busy": "Рядом уже есть другое явление."
 }
