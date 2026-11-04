@@ -22,6 +22,7 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Items;
 import net.minecraft.core.registries.BuiltInRegistries;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.util.Mth;
 import ru.amir.traces.ApparitionEntity;
@@ -35,7 +36,8 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
     private static final ResourceLocation RED_TEXTURE = new ResourceLocation(
             TracesOfPresence.MOD_ID, "textures/entity/apparition_red.png");
     private final ApparitionModel<ApparitionEntity> model;
-    private final Map<String, Entity> killerVisuals = new HashMap<>();
+    private net.minecraft.world.level.Level cachedLevel;
+    private final Map<String, Entity> killerVisuals = new LinkedHashMap<>();
     private final Map<String, ItemStack> itemStackCache = new java.util.LinkedHashMap<>(32, 0.75F, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, ItemStack> eldest) {
@@ -54,6 +56,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
     @Override
     public void render(ApparitionEntity entity, float yaw, float partialTick, PoseStack pose,
                        MultiBufferSource buffers, int packedLight) {
+        resetCachesForLevel(entity.level());
         pose.pushPose();
         float age = entity.tickCount + partialTick;
         float bob = Mth.sin(age * 0.11F) * 0.035F;
@@ -105,7 +108,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
                 skeleton.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
                 skeleton.startUsingItem(InteractionHand.MAIN_HAND);
             }
-            killerVisuals.put(typeId, visual);
+            cacheKillerVisual(typeId, visual);
         }
         float x = echo.getKillerX(), y = echo.getKillerY(), z = echo.getKillerZ();
         double toEchoX = echo.getX() - x;
@@ -164,6 +167,24 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
             renderSpectralKiller(living, partialTick, yaw, cueFade, pose, buffers, packedLight);
         }
         pose.popPose();
+    }
+
+    private void resetCachesForLevel(net.minecraft.world.level.Level level) {
+        if (cachedLevel == level) return;
+        cachedLevel = level;
+        killerVisuals.clear();
+        killerAnimationTicks.clear();
+        killerPreviousPositions.clear();
+        itemStackCache.clear();
+    }
+
+    private void cacheKillerVisual(String typeId, Entity visual) {
+        killerVisuals.put(typeId, visual);
+        if (killerVisuals.size() <= 32) return;
+        String oldestType = killerVisuals.keySet().iterator().next();
+        Entity oldestVisual = killerVisuals.remove(oldestType);
+        killerAnimationTicks.remove(oldestVisual);
+        killerPreviousPositions.remove(oldestVisual);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
