@@ -554,7 +554,20 @@ public final class ApparitionEntity extends Entity {
         if (isDeathReplay() && entityData.get(FLARE_TICK) < 0) {
             int cueTick = entityData.get(DEATH_CUE_TICK);
             if (cueTick >= 0) {
-                if (tickCount - cueTick >= DEATH_CUE_TICKS) beginFlare();
+                int elapsed = tickCount - cueTick;
+                if (elapsed >= DEATH_CUE_TICKS) {
+                    beginFlare();
+                    if (level() instanceof ServerLevel serverLevel && tickCount % 2 == 0) {
+                        double x = entityData.get(KILLER_X);
+                        double y = entityData.get(KILLER_Y) + 0.8D;
+                        double z = entityData.get(KILLER_Z);
+                        DustParticleOptions spectralRed =
+                                new DustParticleOptions(new Vector3f(0.95F, 0.07F, 0.045F), 0.9F);
+                        serverLevel.sendParticles(spectralRed, x, y, z, 3, 0.32D, 0.48D, 0.32D, 0.012D);
+                        serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+                                x, y, z, 1, 0.22D, 0.35D, 0.22D, 0.008D);
+                    }
+                }
                 return;
             }
             tickDeathReplay();

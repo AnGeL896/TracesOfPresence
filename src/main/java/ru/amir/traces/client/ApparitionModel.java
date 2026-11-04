@@ -116,12 +116,13 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         rightArm.xRot = -0.08F + step * armSwing * (1.0F - fallBlend) + secondaryArmDrift - 0.30F * fallBlend;
         leftArm.zRot = 0.08F + sway - 0.30F * fallBlend;
         rightArm.zRot = -0.08F + sway + 0.30F * fallBlend;
-        leftLeg.xRot = step * 0.34F * (1.0F - fallBlend) - 0.42F * collapse;
-        rightLeg.xRot = -leftLeg.xRot - 0.12F * collapse;
-        body.xRot += 0.92F * collapse;
-        body.zRot += Mth.sin(deathCue * 0.42F) * 0.14F * (1.0F - collapse);
-        leftArm.xRot += 0.62F * collapse;
-        rightArm.xRot += 0.48F * collapse;
+        leftLeg.xRot = step * 0.34F * (1.0F - fallBlend) - 0.18F * collapse;
+        rightLeg.xRot = -leftLeg.xRot - 0.08F * collapse;
+        body.xRot += 0.32F * collapse;
+        body.zRot += Mth.sin(deathCue * 0.30F) * 0.08F * (1.0F - collapse);
+        head.xRot += 0.12F * collapse;
+        leftArm.xRot += 0.46F * collapse;
+        rightArm.xRot += 0.40F * collapse;
         leftArm.zRot -= 0.22F * collapse;
         rightArm.zRot += 0.22F * collapse;
     }

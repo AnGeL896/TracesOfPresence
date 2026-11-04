@@ -144,9 +144,44 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         pose.pushPose();
         pose.translate(x - echo.getX(), y - echo.getY(), z - echo.getZ());
         pose.scale(scale, scale, scale);
-        Minecraft.getInstance().getEntityRenderDispatcher().render(visual, 0.0D, 0.0D, 0.0D,
-                yaw, partialTick, pose, buffers, packedLight);
+        float cueFade = cueTime < 40.0F ? 0.0F : smoothStep(Mth.clamp((cueTime - 40.0F) / 30.0F, 0.0F, 1.0F));
+        if (visual instanceof LivingEntity living && cueFade > 0.0F) {
+            living.setInvisible(true);
+            renderSpectralKiller(living, partialTick, yaw, cueFade, pose, buffers, packedLight);
+        } else {
+            if (visual instanceof LivingEntity living) living.setInvisible(false);
+            Minecraft.getInstance().getEntityRenderDispatcher().render(visual, 0.0D, 0.0D, 0.0D,
+                    yaw, partialTick, pose, buffers, packedLight);
+        }
         pose.popPose();
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void renderSpectralKiller(LivingEntity living, float partialTick, float yaw, float fade,
+                                             PoseStack pose, MultiBufferSource buffers, int packedLight) {
+        var renderer = Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(living);
+        if (!(renderer instanceof net.minecraft.client.renderer.entity.LivingEntityRenderer livingRenderer)) return;
+        var mobModel = livingRenderer.getModel();
+        float alpha = 1.0F - fade;
+        float roll = fade * (float) (Math.PI * 0.48D);
+        pose.pushPose();
+        pose.translate(0.0D, 0.85D, 0.0D);
+        pose.mulPose(Axis.ZP.rotation(roll));
+        pose.translate(0.0D, -0.85D, 0.0D);
+        pose.translate(0.0D, 1.5D, 0.0D);
+        pose.mulPose(Axis.YP.rotationDegrees(180.0F - yaw));
+        pose.scale(-1.0F, -1.0F, 1.0F);
+        float age = living.tickCount + partialTick;
+        mobModel.setupAnim(living, 0.0F, 0.0F, age, 0.0F, 0.0F);
+        ResourceLocation texture = livingRenderer.getTextureLocation(living);
+        mobModel.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(texture)),
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0.78F, 0.10F, 0.075F, alpha);
+        pose.popPose();
+    }
+
+    private static float smoothStep(float value) {
+        float t = Mth.clamp(value, 0.0F, 1.0F);
+        return t * t * (3.0F - 2.0F * t);
     }
 
     private static ItemStack stackFor(String id) {
@@ -163,7 +198,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         if (stack.isEmpty()) return;
         pose.pushPose();
         pose.translate(side, 0.82D, 0.02D);
-        pose.mulPose(Axis.XP.rotationDegrees(-88.0F));
+        // THIRD_PERSON hand contexts provide the correct tool/block transform themselves.
         pose.scale(0.48F, 0.48F, 0.48F);
         Minecraft.getInstance().getItemRenderer().renderStatic(stack, context, packedLight,
                 OverlayTexture.NO_OVERLAY, pose, buffers, entity.level(), entity.getId());
