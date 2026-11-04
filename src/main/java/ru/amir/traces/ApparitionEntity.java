@@ -130,6 +130,7 @@ public final class ApparitionEntity extends Entity {
     private List<KillerFrame> killerFrames = List.of();
     private List<ReplayFrame> replayFrames = List.of();
     private List<WorkFrame> workFrames = List.of();
+    private int[] workFrameDurations = new int[0];
     private int workStartTick;
     private double replayElapsedTime;
     private boolean replayMessageSent;
@@ -269,6 +270,19 @@ public final class ApparitionEntity extends Entity {
                     action.getString("main_hand"), action.getString("off_hand")));
         }
         workFrames = loaded;
+        workFrameDurations = new int[workFrames.size()];
+        for (int i = 0; i < workFrames.size(); i++) {
+            int duration = 30;
+            if (i + 1 < workFrames.size()) {
+                WorkFrame from = workFrames.get(i);
+                WorkFrame to = workFrames.get(i + 1);
+                double distance = Math.sqrt(square(to.actorX() - from.actorX())
+                        + square(to.actorY() - from.actorY())
+                        + square(to.actorZ() - from.actorZ()));
+                duration = Mth.clamp(24 + (int) Math.ceil(distance * 7.5D), 30, 100);
+            }
+            workFrameDurations[i] = duration;
+        }
         WorkFrame first = workFrames.get(0);
         setPos(first.actorX(), first.actorY(), first.actorZ());
         setYRot(first.yaw());
@@ -412,17 +426,25 @@ public final class ApparitionEntity extends Entity {
     }
 
     private void tickWorkReplay() {
-        if (workFrames.size() < 3) { beginFlare(); return; }
+        if (workFrames.size() < 3 || workFrameDurations.length != workFrames.size()) {
+            beginFlare();
+            return;
+        }
+
         int elapsed = tickCount - workStartTick;
-        int interval = 30;
-        if (elapsed >= workFrames.size() * interval) {
+        int index = 0;
+        while (index < workFrameDurations.length && elapsed >= workFrameDurations[index]) {
+            elapsed -= workFrameDurations[index];
+            index++;
+        }
+        if (index >= workFrames.size()) {
             entityData.set(GREEN_ACTION, 0);
             beginFlare();
             return;
         }
 
-        int index = Math.min(workFrames.size() - 1, elapsed / interval);
-        int localTick = elapsed % interval;
+        int localTick = elapsed;
+        int interval = workFrameDurations[index];
         WorkFrame from = workFrames.get(index);
         WorkFrame to = index + 1 < workFrames.size() ? workFrames.get(index + 1) : from;
         float amount = smoothStep(localTick / (float) interval);
@@ -438,7 +460,7 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_MAIN_HAND, from.mainHand());
         entityData.set(REPLAY_OFF_HAND, from.offHand());
 
-        int action = localTick < 17 ? switch (from.type()) {
+        int action = localTick < Math.min(17, interval * 3 / 5) ? switch (from.type()) {
             case "break" -> 1;
             case "place" -> 2;
             case "craft" -> 3;
@@ -865,6 +887,8 @@ public final class ApparitionEntity extends Entity {
                 : (glow > 0.0F ? 0.42F + 0.40F * glow : 0.42F);
         return Math.min(fadeIn, fadeOut) * opacity;
     }
+
+    private static double square(double value) { return value * value; }
 
     private static float smoothStep(float value) {
         float clamped = Math.max(0.0F, Math.min(1.0F, value));
