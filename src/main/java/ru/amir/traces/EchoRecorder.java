@@ -253,19 +253,21 @@ public final class EchoRecorder {
             track.frames.addLast(frame);
             while (track.frames.size() > MAX_ENTITY_FRAMES) track.frames.removeFirst();
         }
-        long oldestTime = gameTime - RECORDING_TICKS;
-        history.entityTracks.values().forEach(track -> {
-            while (!track.frames.isEmpty() && track.frames.peekFirst().getLong("time") < oldestTime) {
-                track.frames.removeFirst();
+        if (gameTime % 20L == 0L) {
+            long oldestTime = gameTime - RECORDING_TICKS;
+            history.entityTracks.values().forEach(track -> {
+                while (!track.frames.isEmpty() && track.frames.peekFirst().getLong("time") < oldestTime) {
+                    track.frames.removeFirst();
+                }
+            });
+            history.entityTracks.values().removeIf(track -> track.frames.isEmpty());
+            while (history.entityTracks.size() > 64) {
+                UUID oldest = history.entityTracks.entrySet().stream()
+                        .min(Comparator.comparingLong(entry -> entry.getValue().frames.peekLast().getLong("time")))
+                        .map(Map.Entry::getKey).orElse(null);
+                if (oldest == null) break;
+                history.entityTracks.remove(oldest);
             }
-        });
-        history.entityTracks.values().removeIf(track -> track.frames.isEmpty());
-        while (history.entityTracks.size() > 64) {
-            UUID oldest = history.entityTracks.entrySet().stream()
-                    .min(Comparator.comparingLong(entry -> entry.getValue().frames.peekLast().getLong("time")))
-                    .map(Map.Entry::getKey).orElse(null);
-            if (oldest == null) break;
-            history.entityTracks.remove(oldest);
         }
     }
 
