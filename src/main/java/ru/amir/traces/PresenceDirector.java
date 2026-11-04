@@ -19,8 +19,8 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = TracesOfPresence.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class PresenceDirector {
     private static final int CHECK_INTERVAL_TICKS = 100;
-    private static final int SPAWN_COOLDOWN_TICKS = 1_800;
-    private static final float SPAWN_CHANCE_PER_CHECK = 0.03F;
+    private static final int SPAWN_COOLDOWN_TICKS = 400; // Temporary test cooldown: 20 seconds.
+    private static final float SPAWN_CHANCE_PER_CHECK = 0.50F; // Temporary test chance: 50% every 5 seconds.
     private static final String COOLDOWN_KEY = "traces_apparition_next_spawn";
 
     @SubscribeEvent
