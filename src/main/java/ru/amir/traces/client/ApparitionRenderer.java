@@ -36,6 +36,12 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
             TracesOfPresence.MOD_ID, "textures/entity/apparition_red.png");
     private final ApparitionModel<ApparitionEntity> model;
     private final Map<String, Entity> killerVisuals = new HashMap<>();
+    private final Map<String, ItemStack> itemStackCache = new java.util.LinkedHashMap<>(32, 0.75F, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, ItemStack> eldest) {
+            return size() > 128;
+        }
+    };
     private final Map<Entity, Integer> killerAnimationTicks = new HashMap<>();
     private final Map<Entity, net.minecraft.world.phys.Vec3> killerPreviousPositions = new HashMap<>();
 
@@ -184,11 +190,17 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         return t * t * (3.0F - 2.0F * t);
     }
 
-    private static ItemStack stackFor(String id) {
+    private ItemStack stackFor(String id) {
         if (id == null || id.isEmpty()) return ItemStack.EMPTY;
+        ItemStack cached = itemStackCache.get(id);
+        if (cached != null) return cached.copy();
         ResourceLocation location = ResourceLocation.tryParse(id);
         if (location == null) return ItemStack.EMPTY;
-        return new ItemStack(BuiltInRegistries.ITEM.getOptional(location).orElse(Items.AIR));
+        var item = BuiltInRegistries.ITEM.getOptional(location).orElse(Items.AIR);
+        if (item == Items.AIR) return ItemStack.EMPTY;
+        ItemStack stack = new ItemStack(item);
+        itemStackCache.put(id, stack);
+        return stack.copy();
     }
 
     private static void renderHeldItem(ApparitionEntity entity, String itemId, float side,
