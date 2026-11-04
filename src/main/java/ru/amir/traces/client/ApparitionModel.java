@@ -58,15 +58,20 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
 
     @Override public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks,
                                     float netHeadYaw, float headPitch) {
-        head.yRot = netHeadYaw * ((float) Math.PI / 180.0F);
-        head.xRot = headPitch * ((float) Math.PI / 180.0F);
+        float look = Mth.sin(ageInTicks * 0.12F) * 0.48F;
+        head.yRot = netHeadYaw * ((float) Math.PI / 180.0F) + look;
+        head.xRot = headPitch * ((float) Math.PI / 180.0F) + Mth.sin(ageInTicks * 0.08F) * 0.10F;
         float dissolve = Mth.clamp((ageInTicks - 100.0F) / 60.0F, 0.0F, 1.0F);
-        float sway = Mth.sin(ageInTicks * 0.045F) * (0.035F + dissolve * 0.025F);
-        head.zRot = Mth.sin(ageInTicks * 0.03F) * 0.018F;
+        float sway = Mth.sin(ageInTicks * 0.09F) * (0.055F + dissolve * 0.035F);
+        float glide = Mth.sin(Mth.clamp((ageInTicks - 60.0F) / 40.0F, 0.0F, 1.0F) * (float) Math.PI);
+        float step = Mth.sin(ageInTicks * 0.28F) * glide;
+        head.zRot = Mth.sin(ageInTicks * 0.07F) * 0.035F;
         body.zRot = sway;
-        leftArm.zRot = 0.06F + sway * 0.8F;
-        rightArm.zRot = -0.06F + sway * 0.8F;
-        leftLeg.xRot = Mth.sin(ageInTicks * 0.035F) * 0.018F;
+        leftArm.xRot = -0.16F - step * 0.38F + Mth.sin(ageInTicks * 0.18F) * 0.10F;
+        rightArm.xRot = -0.10F + step * 0.38F + Mth.sin(ageInTicks * 0.18F + 1.2F) * 0.10F;
+        leftArm.zRot = 0.10F + sway;
+        rightArm.zRot = -0.10F + sway;
+        leftLeg.xRot = step * 0.42F;
         rightLeg.xRot = -leftLeg.xRot;
     }
 

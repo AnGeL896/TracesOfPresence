@@ -5,6 +5,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.network.NetworkHooks;
 
@@ -20,6 +21,15 @@ public final class ApparitionEntity extends Entity {
     @Override public void tick() {
         super.tick();
         if (!level().isClientSide && tickCount >= LIFETIME_TICKS) discard();
+        if (level().isClientSide && tickCount % 4 == 0 && random.nextFloat() < 0.65F) {
+            double x = getX() + getDriftOffset(0.0F) + (random.nextDouble() - 0.5D) * 0.5D;
+            double y = getY() + 0.15D + random.nextDouble() * 1.45D;
+            double z = getZ() + (random.nextDouble() - 0.5D) * 0.5D;
+            level().addParticle(ParticleTypes.SOUL, x, y, z,
+                    (random.nextDouble() - 0.5D) * 0.012D,
+                    0.008D + random.nextDouble() * 0.012D,
+                    (random.nextDouble() - 0.5D) * 0.012D);
+        }
     }
 
     public float getFadeAlpha(float partialTick) {
@@ -33,7 +43,7 @@ public final class ApparitionEntity extends Entity {
     public float getDriftOffset(float partialTick) {
         float age = tickCount + partialTick;
         float direction = (getId() & 1) == 0 ? 1.0F : -1.0F;
-        return direction * 0.42F * smoothStep((age - 60.0F) / 40.0F);
+        return direction * 0.65F * smoothStep((age - 60.0F) / 40.0F);
     }
 
     private static float smoothStep(float value) {

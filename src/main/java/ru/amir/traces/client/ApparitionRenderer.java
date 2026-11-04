@@ -26,7 +26,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
                                  MultiBufferSource buffers, int packedLight) {
         pose.pushPose();
         float age = entity.tickCount + partialTick;
-        float bob = Mth.sin(age * 0.08F) * 0.025F;
+        float bob = Mth.sin(age * 0.11F) * 0.045F;
         pose.translate(entity.getDriftOffset(partialTick), 1.5D + bob, 0.0D);
         pose.scale(-1.0F, -1.0F, 1.0F);
         model.setupAnim(entity, 0.0F, 0.0F, entity.tickCount + partialTick, 0.0F, 0.0F);
