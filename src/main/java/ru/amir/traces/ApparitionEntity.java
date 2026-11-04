@@ -21,7 +21,8 @@ import net.minecraftforge.network.NetworkHooks;
 public final class ApparitionEntity extends Entity {
     private static final int APPEAR_TICKS = 16;
     private static final int WALK_START_TICK = 30;
-    private static final int VANISH_DURATION_TICKS = 26;
+    private static final int FLARE_DURATION_TICKS = 12;
+    private static final int VANISH_DURATION_TICKS = 18;
     private static final int MAX_AGE_TICKS = 220;
     private static final double WALK_SPEED = 0.075D;
 
@@ -31,6 +32,8 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> WALKING =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> FLARE_TICK =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> VANISH_TICK =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
 
@@ -44,6 +47,7 @@ public final class ApparitionEntity extends Entity {
         entityData.define(DESTINATION, BlockPos.ZERO);
         entityData.define(HAS_DESTINATION, false);
         entityData.define(WALKING, false);
+        entityData.define(FLARE_TICK, -1);
         entityData.define(VANISH_TICK, -1);
     }
 
@@ -66,6 +70,21 @@ public final class ApparitionEntity extends Entity {
 
         if (!level().isClientSide) {
             tickServer();
+        } else if (getGlowIntensity(0.0F) > 0.02F) {
+            for (int i = 0; i < 4; i++) {
+                double x = getX() + (random.nextDouble() - 0.5D) * 0.75D;
+                double y = getY() + 0.15D + random.nextDouble() * 1.55D;
+                double z = getZ() + (random.nextDouble() - 0.5D) * 0.75D;
+                level().addParticle(ParticleTypes.SOUL_FIRE_FLAME, x, y, z,
+                        (random.nextDouble() - 0.5D) * 0.018D,
+                        0.015D + random.nextDouble() * 0.025D,
+                        (random.nextDouble() - 0.5D) * 0.018D);
+            }
+            if (tickCount % 2 == 0) {
+                level().addParticle(ParticleTypes.END_ROD, getX(), getY() + 0.9D, getZ(),
+                        (random.nextDouble() - 0.5D) * 0.025D, 0.025D,
+                        (random.nextDouble() - 0.5D) * 0.025D);
+            }
         } else if (tickCount % 5 == 0 && random.nextFloat() < 0.55F) {
             double x = getX() + (random.nextDouble() - 0.5D) * 0.45D;
             double y = getY() + 0.2D + random.nextDouble() * 1.35D;
@@ -85,8 +104,15 @@ public final class ApparitionEntity extends Entity {
             return;
         }
 
+        int flareTick = entityData.get(FLARE_TICK);
+        if (flareTick >= 0) {
+            entityData.set(WALKING, false);
+            if (tickCount - flareTick >= FLARE_DURATION_TICKS) beginDissolve();
+            return;
+        }
+
         if (tickCount >= MAX_AGE_TICKS) {
-            beginDissolve();
+            beginFlare();
             return;
         }
 
@@ -95,9 +121,8 @@ public final class ApparitionEntity extends Entity {
         Vec3 destination = Vec3.atBottomCenterOf(entityData.get(DESTINATION));
         Vec3 offset = destination.subtract(position());
         double distance = offset.length();
-        if (distance <= WALK_SPEED) {
-            setPos(destination.x, destination.y, destination.z);
-            beginDissolve();
+        if (distance <= WALK_SPEED + 0.45D) {
+            beginFlare();
             return;
         }
 
@@ -109,16 +134,43 @@ public final class ApparitionEntity extends Entity {
         setPos(position().add(step));
     }
 
+    private void beginFlare() {
+        if (entityData.get(FLARE_TICK) >= 0 || isDissolving()) return;
+        entityData.set(FLARE_TICK, tickCount);
+        entityData.set(WALKING, false);
+        if (level() instanceof ServerLevel serverLevel) {
+            Vec3 at = position().add(0.0D, 0.9D, 0.0D);
+            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
+                    12, 0.34D, 0.75D, 0.34D, 0.018D);
+            serverLevel.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z,
+                    5, 0.22D, 0.65D, 0.22D, 0.025D);
+        }
+    }
+
     private void beginDissolve() {
         if (isDissolving()) return;
         entityData.set(VANISH_TICK, tickCount);
         entityData.set(WALKING, false);
         if (level() instanceof ServerLevel serverLevel) {
             Vec3 at = position().add(0.0D, 0.9D, 0.0D);
-            serverLevel.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 9, 0.28D, 0.55D, 0.28D, 0.015D);
-            serverLevel.sendParticles(ParticleTypes.SOUL, at.x, at.y, at.z, 5, 0.2D, 0.5D, 0.2D, 0.008D);
+            serverLevel.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 14, 0.32D, 0.65D, 0.32D, 0.018D);
+            serverLevel.sendParticles(ParticleTypes.SOUL, at.x, at.y, at.z, 12, 0.24D, 0.62D, 0.24D, 0.014D);
+            serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
+                    18, 0.35D, 0.8D, 0.35D, 0.022D);
+            serverLevel.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z,
+                    8, 0.24D, 0.7D, 0.24D, 0.035D);
             serverLevel.playSound(null, blockPosition(), SoundEvents.GRASS_HIT, SoundSource.AMBIENT, 0.45F, 0.72F);
         }
+    }
+
+    public float getGlowIntensity(float partialTick) {
+        int flareTick = entityData.get(FLARE_TICK);
+        if (flareTick < 0) return 0.0F;
+        float age = tickCount + partialTick;
+        float glow = smoothStep((age - flareTick) / 4.0F);
+        int vanishTick = entityData.get(VANISH_TICK);
+        if (vanishTick >= 0) glow *= 1.0F - smoothStep((age - vanishTick) / VANISH_DURATION_TICKS);
+        return glow;
     }
 
     public float getFadeAlpha(float partialTick) {
@@ -130,7 +182,9 @@ public final class ApparitionEntity extends Entity {
                 : entityData.get(HAS_DESTINATION)
                     ? 1.0F
                     : smoothStep((160.0F - age) / 60.0F);
-        return Math.min(fadeIn, fadeOut) * 0.42F;
+        float glow = getGlowIntensity(partialTick);
+        float opacity = glow > 0.0F ? 0.42F + 0.40F * glow : 0.42F;
+        return Math.min(fadeIn, fadeOut) * opacity;
     }
 
     private static float smoothStep(float value) {

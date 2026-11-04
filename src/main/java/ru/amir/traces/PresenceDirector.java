@@ -19,8 +19,8 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = TracesOfPresence.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class PresenceDirector {
     private static final int CHECK_INTERVAL_TICKS = 100;
-    private static final int SPAWN_COOLDOWN_TICKS = 400; // Temporary test cooldown: 20 seconds.
-    private static final float SPAWN_CHANCE_PER_CHECK = 0.50F; // Temporary test chance: 50% every 5 seconds.
+    private static final int SPAWN_COOLDOWN_TICKS = 1_800;
+    private static final float SPAWN_CHANCE_PER_CHECK = 0.03F;
     private static final String COOLDOWN_KEY = "traces_apparition_next_spawn";
 
     @SubscribeEvent
@@ -29,7 +29,7 @@ public final class PresenceDirector {
         if (level.dimension() != Level.OVERWORLD || level.getGameTime() % CHECK_INTERVAL_TICKS != 0) return;
 
         for (ServerPlayer player : level.players()) {
-            if (player.isSpectator() || player.isSleeping()) continue;
+            if (player.isSpectator() || player.isCreative() || player.isSleeping()) continue;
             if (level.getGameTime() < player.getPersistentData().getLong(COOLDOWN_KEY)) continue;
             if (!isNight(level) || !isSuitableBiome(level, player.blockPosition())) continue;
             if (level.random.nextFloat() >= SPAWN_CHANCE_PER_CHECK) continue;
@@ -75,7 +75,7 @@ public final class PresenceDirector {
         double radians = Math.toRadians(yaw);
         double forwardX = -Math.sin(radians);
         double forwardZ = Math.cos(radians);
-        double searchDistance = 16.0D + level.random.nextDouble() * 7.0D;
+        double searchDistance = 20.0D + level.random.nextDouble() * 8.0D;
         int centerX = (int) Math.floor(player.getX() + forwardX * searchDistance);
         int centerZ = (int) Math.floor(player.getZ() + forwardZ * searchDistance);
 
@@ -111,10 +111,10 @@ public final class PresenceDirector {
         towardX /= distance;
         towardZ /= distance;
 
-        double startX = treeX - towardX * 3.25D;
-        double startZ = treeZ - towardZ * 3.25D;
-        double targetX = treeX + towardX * 3.75D;
-        double targetZ = treeZ + towardZ * 3.75D;
+        double startX = treeX - towardX * 8.0D;
+        double startZ = treeZ - towardZ * 8.0D;
+        double targetX = treeX - towardX * 1.1D;
+        double targetZ = treeZ - towardZ * 1.1D;
 
         BlockPos startGround = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                 BlockPos.containing(startX, player.getY(), startZ));
@@ -124,12 +124,13 @@ public final class PresenceDirector {
         if (!isSafeGround(level, startGround) || !isSafeGround(level, targetGround)) return null;
 
         Vec3 start = new Vec3(startX, startGround.getY(), startZ);
-        Vec3 target = new Vec3(targetX, targetGround.getY() + 1.0D, targetZ);
         HitResult startSight = level.clip(new ClipContext(player.getEyePosition(), start.add(0.0D, 1.0D, 0.0D),
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
         if (startSight.getType() != HitResult.Type.MISS) return null;
 
-        HitResult targetSight = level.clip(new ClipContext(player.getEyePosition(), target,
+        Vec3 coverProbe = new Vec3(treeX + towardX * 1.75D, targetGround.getY() + 1.0D,
+                treeZ + towardZ * 1.75D);
+        HitResult targetSight = level.clip(new ClipContext(player.getEyePosition(), coverProbe,
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
         if (targetSight.getType() != HitResult.Type.BLOCK) return null;
         BlockPos cover = ((BlockHitResult) targetSight).getBlockPos();

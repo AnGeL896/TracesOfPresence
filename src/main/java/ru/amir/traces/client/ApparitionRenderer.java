@@ -2,6 +2,7 @@ package ru.amir.traces.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -33,7 +34,10 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         pose.mulPose(Axis.YP.rotationDegrees(180.0F - entity.getYRot()));
         pose.scale(-1.0F, -1.0F, 1.0F);
         model.setupAnim(entity, 0.0F, 0.0F, age, 0.0F, 0.0F);
-        model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(TEXTURE)), packedLight,
+        int glowLight = entity.getGlowIntensity(partialTick) > 0.02F
+                ? LightTexture.pack(15, 15)
+                : packedLight;
+        model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(TEXTURE)), glowLight,
                 OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, entity.getFadeAlpha(partialTick));
         pose.popPose();
         super.render(entity, yaw, partialTick, pose, buffers, packedLight);
