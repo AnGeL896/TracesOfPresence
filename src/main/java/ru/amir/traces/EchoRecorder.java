@@ -286,6 +286,7 @@ public final class EchoRecorder {
     }
 
     private static void putWorkContext(CompoundTag action, ServerPlayer player) {
+        action.putString("dimension", player.level().dimension().location().toString());
         action.putDouble("actor_x", player.getX());
         action.putDouble("actor_y", player.getY());
         action.putDouble("actor_z", player.getZ());
