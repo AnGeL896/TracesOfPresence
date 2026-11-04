@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import ru.amir.traces.ApparitionEntity;
 import ru.amir.traces.TracesOfPresence;
 
@@ -24,7 +25,9 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
     @Override public void render(ApparitionEntity entity, float yaw, float partialTick, PoseStack pose,
                                  MultiBufferSource buffers, int packedLight) {
         pose.pushPose();
-        pose.translate(0.0D, 1.5D, 0.0D);
+        float age = entity.tickCount + partialTick;
+        float bob = Mth.sin(age * 0.08F) * 0.025F;
+        pose.translate(entity.getDriftOffset(partialTick), 1.5D + bob, 0.0D);
         pose.scale(-1.0F, -1.0F, 1.0F);
         model.setupAnim(entity, 0.0F, 0.0F, entity.tickCount + partialTick, 0.0F, 0.0F);
         model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(TEXTURE)), packedLight,

@@ -24,9 +24,21 @@ public final class ApparitionEntity extends Entity {
 
     public float getFadeAlpha(float partialTick) {
         float age = tickCount + partialTick;
-        float fadeIn = Math.min(1.0F, age / 20.0F);
-        float fadeOut = Math.min(1.0F, (LIFETIME_TICKS - age) / 30.0F);
-        return Math.max(0.0F, Math.min(fadeIn, fadeOut)) * 0.62F;
+        float fadeIn = smoothStep(age / 20.0F);
+        float fadeOut = smoothStep((LIFETIME_TICKS - age) / 60.0F);
+        return Math.min(fadeIn, fadeOut) * 0.42F;
+    }
+
+    /** Glides sideways during seconds 3–5 of its lifespan. */
+    public float getDriftOffset(float partialTick) {
+        float age = tickCount + partialTick;
+        float direction = (getId() & 1) == 0 ? 1.0F : -1.0F;
+        return direction * 0.42F * smoothStep((age - 60.0F) / 40.0F);
+    }
+
+    private static float smoothStep(float value) {
+        float clamped = Math.max(0.0F, Math.min(1.0F, value));
+        return clamped * clamped * (3.0F - 2.0F * clamped);
     }
 
     @Override protected void defineSynchedData() { }

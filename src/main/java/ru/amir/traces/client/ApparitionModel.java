@@ -60,11 +60,13 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
                                     float netHeadYaw, float headPitch) {
         head.yRot = netHeadYaw * ((float) Math.PI / 180.0F);
         head.xRot = headPitch * ((float) Math.PI / 180.0F);
-        float sway = Mth.sin(ageInTicks * 0.045F) * 0.035F;
+        float dissolve = Mth.clamp((ageInTicks - 100.0F) / 60.0F, 0.0F, 1.0F);
+        float sway = Mth.sin(ageInTicks * 0.045F) * (0.035F + dissolve * 0.025F);
+        head.zRot = Mth.sin(ageInTicks * 0.03F) * 0.018F;
         body.zRot = sway;
-        leftArm.zRot = 0.06F + sway;
-        rightArm.zRot = -0.06F + sway;
-        leftLeg.xRot = Mth.sin(ageInTicks * 0.035F) * 0.025F;
+        leftArm.zRot = 0.06F + sway * 0.8F;
+        rightArm.zRot = -0.06F + sway * 0.8F;
+        leftLeg.xRot = Mth.sin(ageInTicks * 0.035F) * 0.018F;
         rightLeg.xRot = -leftLeg.xRot;
     }
 
