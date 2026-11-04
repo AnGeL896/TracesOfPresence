@@ -38,6 +38,7 @@ public final class ApparitionEntity extends Entity {
     private static final double WALK_ACCELERATION = 0.0025D;
     private static final double WALK_DECELERATION = 0.0035D;
     private static final double ARRIVAL_DISTANCE = 0.55D;
+    private static final double REPLAY_TIME_SCALE = 0.85D;
 
     private static final EntityDataAccessor<BlockPos> DESTINATION =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BLOCK_POS);
@@ -66,7 +67,7 @@ public final class ApparitionEntity extends Entity {
     private float previousWalkBlend;
     private float previousReplayLimbPhase;
     private List<ReplayFrame> replayFrames = List.of();
-    private int replayElapsedTicks;
+    private double replayElapsedTime;
     private boolean replayMessageSent;
 
     public ApparitionEntity(EntityType<? extends ApparitionEntity> type, Level level) {
@@ -131,7 +132,7 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_LIMB_PHASE, 0.0F);
         entityData.set(REPLAY_SPRINTING, first.sprinting());
         entityData.set(DEATH_REPLAY, true);
-        replayElapsedTicks = 0;
+        replayElapsedTime = 0.0D;
         return true;
     }
 
@@ -204,7 +205,8 @@ public final class ApparitionEntity extends Entity {
 
         ReplayFrame first = replayFrames.get(0);
         ReplayFrame last = replayFrames.get(replayFrames.size() - 1);
-        long targetTime = first.time() + replayElapsedTicks++;
+        double targetTime = first.time() + replayElapsedTime;
+        replayElapsedTime += REPLAY_TIME_SCALE;
         if (targetTime >= last.time()) {
             applyReplayFrame(last);
             updateWalkBlend(0.0F);
@@ -423,7 +425,7 @@ public final class ApparitionEntity extends Entity {
             ListTag frames = tag.getList("traces_replay_frames", Tag.TAG_COMPOUND);
             if (frames.size() >= 2) {
                 setReplayFrames(frames);
-                replayElapsedTicks = tag.getInt("traces_replay_elapsed");
+                replayElapsedTime = tag.getDouble("traces_replay_elapsed");
                 entityData.set(DEATH_REPLAY, true);
             }
         }
@@ -433,7 +435,7 @@ public final class ApparitionEntity extends Entity {
     protected void addAdditionalSaveData(CompoundTag tag) {
         if (!isDeathReplay() || replayFrames.isEmpty()) return;
         tag.putBoolean("traces_death_replay", true);
-        tag.putInt("traces_replay_elapsed", replayElapsedTicks);
+        tag.putDouble("traces_replay_elapsed", replayElapsedTime);
         ListTag frames = new ListTag();
         for (ReplayFrame frame : replayFrames) {
             CompoundTag saved = new CompoundTag();
