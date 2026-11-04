@@ -14,7 +14,7 @@ public final class ModEntities {
             () -> EntityType.Builder.<ApparitionEntity>of(ApparitionEntity::new, MobCategory.MISC)
                     .sized(0.6F, 1.8F)
                     .clientTrackingRange(32)
-                    .updateInterval(2)
+                    .updateInterval(1)
                     .build("apparition"));
 
     private ModEntities() { }

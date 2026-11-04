@@ -60,20 +60,23 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     @Override
     public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks,
                           float netHeadYaw, float headPitch) {
-        float look = Mth.sin(ageInTicks * 0.12F) * 0.48F;
+        float look = Mth.sin(ageInTicks * 0.045F) * 0.27F;
         head.yRot = netHeadYaw * ((float) Math.PI / 180.0F) + look;
-        head.xRot = headPitch * ((float) Math.PI / 180.0F) + Mth.sin(ageInTicks * 0.08F) * 0.10F;
-        float walking = entity instanceof ApparitionEntity apparition && apparition.isWalking() ? 1.0F : 0.0F;
-        float sway = Mth.sin(ageInTicks * 0.09F) * 0.07F;
-        float step = Mth.sin(ageInTicks * 0.62F) * walking;
-        head.zRot = Mth.sin(ageInTicks * 0.07F) * 0.035F;
+        head.xRot = headPitch * ((float) Math.PI / 180.0F) + Mth.sin(ageInTicks * 0.035F) * 0.06F;
+        float walking = entity instanceof ApparitionEntity apparition
+                ? apparition.getWalkBlend(limbSwing)
+                : 0.0F;
+        float sway = Mth.sin(ageInTicks * 0.055F) * 0.04F;
+        float step = Mth.sin(ageInTicks * 0.28F) * walking;
+        float idleArmDrift = Mth.sin(ageInTicks * 0.07F) * 0.035F;
+        head.zRot = Mth.sin(ageInTicks * 0.04F) * 0.02F;
         body.zRot = sway;
-        body.xRot = -0.08F * walking;
-        leftArm.xRot = -0.18F - step * 0.42F + Mth.sin(ageInTicks * 0.18F) * 0.10F;
-        rightArm.xRot = -0.12F + step * 0.42F + Mth.sin(ageInTicks * 0.18F + 1.2F) * 0.10F;
-        leftArm.zRot = 0.10F + sway;
-        rightArm.zRot = -0.10F + sway;
-        leftLeg.xRot = step * 0.52F;
+        body.xRot = -0.035F * walking;
+        leftArm.xRot = -0.10F - step * 0.24F + idleArmDrift;
+        rightArm.xRot = -0.08F + step * 0.24F + Mth.sin(ageInTicks * 0.07F + 1.2F) * 0.035F;
+        leftArm.zRot = 0.08F + sway;
+        rightArm.zRot = -0.08F + sway;
+        leftLeg.xRot = step * 0.34F;
         rightLeg.xRot = -leftLeg.xRot;
     }
 

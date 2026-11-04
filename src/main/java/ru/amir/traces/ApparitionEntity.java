@@ -10,6 +10,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.util.Mth;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -24,7 +25,10 @@ public final class ApparitionEntity extends Entity {
     private static final int FLARE_DURATION_TICKS = 12;
     private static final int VANISH_DURATION_TICKS = 18;
     private static final int MAX_AGE_TICKS = 220;
-    private static final double WALK_SPEED = 0.075D;
+    private static final double MAX_WALK_SPEED = 0.05D;
+    private static final double WALK_ACCELERATION = 0.0025D;
+    private static final double WALK_DECELERATION = 0.0035D;
+    private static final double ARRIVAL_DISTANCE = 0.55D;
 
     private static final EntityDataAccessor<BlockPos> DESTINATION =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BLOCK_POS);
@@ -32,10 +36,15 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> WALKING =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> WALK_BLEND =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> FLARE_TICK =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> VANISH_TICK =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
+
+    private double currentWalkSpeed;
+    private float previousWalkBlend;
 
     public ApparitionEntity(EntityType<? extends ApparitionEntity> type, Level level) {
         super(type, level);
@@ -47,6 +56,7 @@ public final class ApparitionEntity extends Entity {
         entityData.define(DESTINATION, BlockPos.ZERO);
         entityData.define(HAS_DESTINATION, false);
         entityData.define(WALKING, false);
+        entityData.define(WALK_BLEND, 0.0F);
         entityData.define(FLARE_TICK, -1);
         entityData.define(VANISH_TICK, -1);
     }
@@ -60,12 +70,24 @@ public final class ApparitionEntity extends Entity {
         return entityData.get(WALKING);
     }
 
+    public float getWalkBlend(float partialTick) {
+        return Mth.lerp(partialTick, previousWalkBlend, entityData.get(WALK_BLEND));
+    }
+
+    private void updateWalkBlend(float target) {
+        float current = entityData.get(WALK_BLEND);
+        float next = Mth.approach(current, target, 0.065F);
+        entityData.set(WALK_BLEND, next);
+        entityData.set(WALKING, next > 0.02F);
+    }
+
     private boolean isDissolving() {
         return entityData.get(VANISH_TICK) >= 0;
     }
 
     @Override
     public void tick() {
+        previousWalkBlend = entityData.get(WALK_BLEND);
         super.tick();
 
         if (!level().isClientSide) {
@@ -99,14 +121,16 @@ public final class ApparitionEntity extends Entity {
     private void tickServer() {
         int vanishTick = entityData.get(VANISH_TICK);
         if (vanishTick >= 0) {
-            entityData.set(WALKING, false);
+            currentWalkSpeed = 0.0D;
+            updateWalkBlend(0.0F);
             if (tickCount - vanishTick >= VANISH_DURATION_TICKS) discard();
             return;
         }
 
         int flareTick = entityData.get(FLARE_TICK);
         if (flareTick >= 0) {
-            entityData.set(WALKING, false);
+            currentWalkSpeed = 0.0D;
+            updateWalkBlend(0.0F);
             if (tickCount - flareTick >= FLARE_DURATION_TICKS) beginDissolve();
             return;
         }
@@ -116,28 +140,39 @@ public final class ApparitionEntity extends Entity {
             return;
         }
 
-        if (!entityData.get(HAS_DESTINATION) || tickCount < WALK_START_TICK) return;
+        if (!entityData.get(HAS_DESTINATION) || tickCount < WALK_START_TICK) {
+            updateWalkBlend(0.0F);
+            return;
+        }
 
         Vec3 destination = Vec3.atBottomCenterOf(entityData.get(DESTINATION));
         Vec3 offset = destination.subtract(position());
         double distance = offset.length();
-        if (distance <= WALK_SPEED + 0.45D) {
+        if (distance <= ARRIVAL_DISTANCE) {
+            currentWalkSpeed = 0.0D;
+            updateWalkBlend(0.0F);
             beginFlare();
             return;
         }
 
-        entityData.set(WALKING, true);
-        float yaw = (float) (Math.toDegrees(Math.atan2(-offset.x, offset.z)));
-        setYRot(yaw);
-        yRotO = yaw;
-        Vec3 step = offset.normalize().scale(WALK_SPEED);
+        double remainingDistance = Math.max(0.0D, distance - ARRIVAL_DISTANCE);
+        double desiredSpeed = Math.min(MAX_WALK_SPEED,
+                Math.sqrt(2.0D * WALK_DECELERATION * remainingDistance));
+        double speedChange = desiredSpeed > currentWalkSpeed ? WALK_ACCELERATION : WALK_DECELERATION;
+        currentWalkSpeed += Math.max(-speedChange, Math.min(speedChange, desiredSpeed - currentWalkSpeed));
+        updateWalkBlend((float) (currentWalkSpeed / MAX_WALK_SPEED));
+
+        float desiredYaw = (float) Math.toDegrees(Math.atan2(-offset.x, offset.z));
+        setYRot(Mth.approachDegrees(getYRot(), desiredYaw, 3.0F));
+        Vec3 step = offset.normalize().scale(Math.min(currentWalkSpeed, distance));
         setPos(position().add(step));
     }
 
     private void beginFlare() {
         if (entityData.get(FLARE_TICK) >= 0 || isDissolving()) return;
         entityData.set(FLARE_TICK, tickCount);
-        entityData.set(WALKING, false);
+        currentWalkSpeed = 0.0D;
+        updateWalkBlend(0.0F);
         if (level() instanceof ServerLevel serverLevel) {
             Vec3 at = position().add(0.0D, 0.9D, 0.0D);
             serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
