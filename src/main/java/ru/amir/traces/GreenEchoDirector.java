@@ -9,7 +9,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -30,7 +29,6 @@ public final class GreenEchoDirector {
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
         if (event.phase != TickEvent.Phase.END || !(event.level instanceof ServerLevel level)
                 || !TracesConfig.GREEN_ECHO_ENABLED.get()
-                || level.dimension() != Level.OVERWORLD
                 || level.getGameTime() % CHECK_INTERVAL_TICKS != 0L) return;
 
         for (ServerPlayer player : level.players()) {
@@ -67,21 +65,46 @@ public final class GreenEchoDirector {
 
     private static ListTag collectNearbyWork(ServerPlayer player, long now) {
         ListTag saved = EchoRecorder.getRecentWorkActions(player);
-        ListTag local = new ListTag();
+        ListTag nearby = new ListTag();
         long newestAction = Long.MIN_VALUE;
+        CompoundTag newest = null;
         Vec3 playerPos = player.position();
+        String dimension = player.level().dimension().location().toString();
+
         for (int i = 0; i < saved.size(); i++) {
             CompoundTag action = saved.getCompound(i);
             long time = action.getLong("time");
-            if (now - time > WORK_LOOKBACK_TICKS) continue;
+            if (now - time > WORK_LOOKBACK_TICKS
+                    || !dimension.equals(action.getString("dimension"))) continue;
             double dx = action.getDouble("actor_x") - playerPos.x;
             double dz = action.getDouble("actor_z") - playerPos.z;
             if (dx * dx + dz * dz > 20.0D * 20.0D) continue;
-            local.add(action.copy());
-            newestAction = Math.max(newestAction, time);
+            nearby.add(action.copy());
+            if (time > newestAction) {
+                newestAction = time;
+                newest = action;
+            }
         }
-        if (local.size() < MIN_ACTIONS || now - newestAction < MIN_IDLE_TICKS) return new ListTag();
-        while (local.size() > MAX_REPLAY_ACTIONS) local.remove(0);
-        return local;
+
+        if (newest == null || now - newestAction < MIN_IDLE_TICKS) return new ListTag();
+
+        // Keep the memory centered on the most recent work site so separate
+        // projects visited during the lookback window do not become one route.
+        double centerX = newest.getDouble("actor_x");
+        double centerY = newest.getDouble("actor_y");
+        double centerZ = newest.getDouble("actor_z");
+        ListTag cluster = new ListTag();
+        for (int i = 0; i < nearby.size(); i++) {
+            CompoundTag action = nearby.getCompound(i);
+            double dx = action.getDouble("actor_x") - centerX;
+            double dy = action.getDouble("actor_y") - centerY;
+            double dz = action.getDouble("actor_z") - centerZ;
+            if (dx * dx + dz * dz <= 12.0D * 12.0D && Math.abs(dy) <= 6.0D) {
+                cluster.add(action.copy());
+            }
+        }
+        if (cluster.size() < MIN_ACTIONS) return new ListTag();
+        while (cluster.size() > MAX_REPLAY_ACTIONS) cluster.remove(0);
+        return cluster;
     }
 }
