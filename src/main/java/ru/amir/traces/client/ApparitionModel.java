@@ -92,6 +92,7 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         float walking = apparition != null ? apparition.getWalkBlend(limbSwing) : 0.0F;
         float crouchBlend = deathReplay ? apparition.getReplayCrouchBlend(limbSwing) : 0.0F;
         float sprintBlend = deathReplay ? apparition.getReplaySprintBlend(limbSwing) : 0.0F;
+        float fallBlend = deathReplay ? apparition.getReplayFallBlend(limbSwing) : 0.0F;
         float sway = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.055F) * 0.04F;
         float gaitPhase = deathReplay
                 ? apparition.getReplayLimbPhase(limbSwing) * 0.6662F
@@ -103,16 +104,16 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         float deathFlinch = deathReplay && apparition.getGlowIntensity(0.0F) > 0.25F
                 ? apparition.getGlowIntensity(0.0F) * 0.16F : 0.0F;
         float uprightLean = Mth.lerp(sprintBlend, -0.035F * walking, -0.10F);
-        body.xRot = Mth.lerp(crouchBlend, uprightLean, 0.22F) - deathFlinch;
+        body.xRot = Mth.lerp(crouchBlend, uprightLean, 0.22F) - deathFlinch - 0.18F * fallBlend;
         body.y = crouchBlend * 1.5F;
         head.y = -crouchBlend;
         float armSwing = Mth.lerp(sprintBlend, 0.24F, 0.28F);
         float secondaryArmDrift = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.07F + 1.2F) * 0.035F;
-        leftArm.xRot = -0.10F - step * armSwing + idleArmDrift;
-        rightArm.xRot = -0.08F + step * armSwing + secondaryArmDrift;
-        leftArm.zRot = 0.08F + sway;
-        rightArm.zRot = -0.08F + sway;
-        leftLeg.xRot = step * 0.34F;
+        leftArm.xRot = -0.10F - step * armSwing * (1.0F - fallBlend) + idleArmDrift - 0.30F * fallBlend;
+        rightArm.xRot = -0.08F + step * armSwing * (1.0F - fallBlend) + secondaryArmDrift - 0.30F * fallBlend;
+        leftArm.zRot = 0.08F + sway - 0.30F * fallBlend;
+        rightArm.zRot = -0.08F + sway + 0.30F * fallBlend;
+        leftLeg.xRot = step * 0.34F * (1.0F - fallBlend);
         rightLeg.xRot = -leftLeg.xRot;
     }
 

@@ -79,6 +79,12 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> DEATH_CUE_TICK =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> KILLER_VISIBLE =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> REPLAY_FALLING =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<String> DEATH_CAUSE =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
 
     private double currentWalkSpeed;
     private float previousWalkBlend;
@@ -87,6 +93,9 @@ public final class ApparitionEntity extends Entity {
     private float previousReplayCrouchBlend;
     private float replaySprintBlend;
     private float previousReplaySprintBlend;
+    private float replayFallBlend;
+    private float previousReplayFallBlend;
+    private List<KillerFrame> killerFrames = List.of();
     private List<ReplayFrame> replayFrames = List.of();
     private double replayElapsedTime;
     private boolean replayMessageSent;
@@ -117,6 +126,9 @@ public final class ApparitionEntity extends Entity {
         entityData.define(KILLER_Z, 0.0F);
         entityData.define(KILLER_YAW, 0.0F);
         entityData.define(DEATH_CUE_TICK, -1);
+        entityData.define(KILLER_VISIBLE, false);
+        entityData.define(REPLAY_FALLING, false);
+        entityData.define(DEATH_CAUSE, "");
     }
 
     public void setDestination(BlockPos destination) {
@@ -162,6 +174,11 @@ public final class ApparitionEntity extends Entity {
         return start < 0 ? -1.0F : tickCount + partialTick - start;
     }
     public boolean isCreeperDeath() { return "minecraft:creeper".equals(getKillerType()); }
+    public boolean isKillerVisible() { return entityData.get(KILLER_VISIBLE); }
+    public String getDeathCause() { return entityData.get(DEATH_CAUSE); }
+    public float getReplayFallBlend(float partialTick) {
+        return Mth.lerp(partialTick, previousReplayFallBlend, replayFallBlend);
+    }
 
     public boolean isGreenEcho() {
         return entityData.get(GREEN_ECHO);
@@ -189,10 +206,25 @@ public final class ApparitionEntity extends Entity {
         entityData.set(KILLER_Y, (float) memory.getDouble("attacker_y"));
         entityData.set(KILLER_Z, (float) memory.getDouble("attacker_z"));
         entityData.set(KILLER_YAW, memory.getFloat("attacker_yaw"));
+        entityData.set(DEATH_CAUSE, memory.getString("cause"));
+        setKillerFrames(memory.getList("attacker_frames", Tag.TAG_COMPOUND));
+        entityData.set(KILLER_VISIBLE, false);
+        entityData.set(REPLAY_FALLING, false);
         entityData.set(DEATH_CUE_TICK, -1);
         entityData.set(DEATH_REPLAY, true);
         replayElapsedTime = 0.0D;
         return true;
+    }
+
+    private void setKillerFrames(ListTag frames) {
+        List<KillerFrame> loaded = new ArrayList<>(frames.size());
+        for (int i = 0; i < frames.size(); i++) {
+            CompoundTag frame = frames.getCompound(i);
+            loaded.add(new KillerFrame(frame.getLong("time"), frame.getDouble("x"),
+                    frame.getDouble("y"), frame.getDouble("z"), frame.getFloat("yaw"),
+                    frame.getFloat("pitch")));
+        }
+        killerFrames = loaded;
     }
 
     private void setReplayFrames(ListTag frames) {
@@ -202,7 +234,7 @@ public final class ApparitionEntity extends Entity {
             loaded.add(new ReplayFrame(frame.getLong("time"), frame.getDouble("x"),
                     frame.getDouble("y"), frame.getDouble("z"), frame.getFloat("yaw"),
                     frame.getFloat("pitch"), frame.getFloat("head_yaw"), frame.getBoolean("crouching"),
-                    frame.getBoolean("sprinting")));
+                    frame.getBoolean("sprinting"), frame.getBoolean("on_ground")));
         }
         replayFrames = loaded;
     }
@@ -228,7 +260,10 @@ public final class ApparitionEntity extends Entity {
         previousReplayLimbPhase = entityData.get(REPLAY_LIMB_PHASE);
         previousReplayCrouchBlend = replayCrouchBlend;
         previousReplaySprintBlend = replaySprintBlend;
+        previousReplayFallBlend = replayFallBlend;
         super.tick();
+        float targetFall = entityData.get(REPLAY_FALLING) ? 1.0F : 0.0F;
+        replayFallBlend = Mth.approach(replayFallBlend, targetFall, 0.16F);
         float targetCrouch = entityData.get(REPLAY_CROUCHING) ? 1.0F : 0.0F;
         float targetSprint = entityData.get(REPLAY_SPRINTING) ? 1.0F : 0.0F;
         replayCrouchBlend = Mth.approach(replayCrouchBlend, targetCrouch, 0.12F);
@@ -272,6 +307,7 @@ public final class ApparitionEntity extends Entity {
         ReplayFrame last = replayFrames.get(replayFrames.size() - 1);
         double targetTime = first.time() + replayElapsedTime;
         replayElapsedTime += REPLAY_TIME_SCALE;
+        updateKillerPlayback(targetTime);
         if (targetTime >= last.time()) {
             applyReplayFrame(last);
             updateWalkBlend(0.0F);
@@ -298,11 +334,31 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_HEAD_YAW, Mth.rotLerp(amount, from.headYaw(), to.headYaw()));
         entityData.set(REPLAY_CROUCHING, amount < 0.5F ? from.crouching() : to.crouching());
         entityData.set(REPLAY_SPRINTING, amount < 0.5F ? from.sprinting() : to.sprinting());
+        entityData.set(REPLAY_FALLING, !to.onGround() && y < from.y());
 
         float horizontalMovement = (float) Math.hypot(x - oldX, z - oldZ);
         entityData.set(REPLAY_LIMB_PHASE,
                 entityData.get(REPLAY_LIMB_PHASE) + horizontalMovement * 4.0F);
         updateWalkBlend(Mth.clamp(horizontalMovement / 0.18F, 0.0F, 1.0F));
+    }
+
+    private void updateKillerPlayback(double targetTime) {
+        if (killerFrames.isEmpty()) { entityData.set(KILLER_VISIBLE, false); return; }
+        int index = 0;
+        while (index + 1 < killerFrames.size() && killerFrames.get(index + 1).time() <= targetTime) index++;
+        KillerFrame from = killerFrames.get(index);
+        if (targetTime < from.time() || targetTime > from.time() + 2.0D) {
+            entityData.set(KILLER_VISIBLE, false);
+            return;
+        }
+        KillerFrame to = index + 1 < killerFrames.size() ? killerFrames.get(index + 1) : from;
+        float amount = to.time() == from.time() ? 0.0F
+                : Mth.clamp((float) ((targetTime - from.time()) / (to.time() - from.time())), 0.0F, 1.0F);
+        entityData.set(KILLER_X, (float) Mth.lerp(amount, from.x(), to.x()));
+        entityData.set(KILLER_Y, (float) Mth.lerp(amount, from.y(), to.y()));
+        entityData.set(KILLER_Z, (float) Mth.lerp(amount, from.z(), to.z()));
+        entityData.set(KILLER_YAW, Mth.rotLerp(amount, from.yaw(), to.yaw()));
+        entityData.set(KILLER_VISIBLE, true);
     }
 
     private double interpolatePosition(int frameIndex, float amount, int axis) {
@@ -338,7 +394,12 @@ public final class ApparitionEntity extends Entity {
 
     private void beginDeathCue() {
         String typeId = entityData.get(KILLER_TYPE);
-        if (typeId.isEmpty()) { beginFlare(); return; }
+        if (typeId.isEmpty()) {
+            showEnvironmentalCause();
+            beginFlare();
+            return;
+        }
+        entityData.set(KILLER_VISIBLE, true);
         entityData.set(DEATH_CUE_TICK, tickCount);
         if (level() instanceof ServerLevel serverLevel && !killerMessageSent) {
             killerMessageSent = true;
@@ -357,6 +418,23 @@ public final class ApparitionEntity extends Entity {
         }
     }
 
+    private void showEnvironmentalCause() {
+        String cause = getDeathCause();
+        String key = switch (cause) {
+            case "fall" -> "message.traces.death_echo_fall";
+            case "drown" -> "message.traces.death_echo_drown";
+            case "lava", "hotFloor" -> "message.traces.death_echo_lava";
+            case "inFire", "onFire" -> "message.traces.death_echo_fire";
+            default -> "message.traces.death_echo_cause";
+        };
+        if (!(level() instanceof ServerLevel serverLevel)) return;
+        Component message = key.endsWith("_cause")
+                ? Component.translatable(key, Component.literal(cause)) : Component.translatable(key);
+        for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class, getBoundingBox().inflate(32.0D))) {
+            player.displayClientMessage(message.withStyle(ChatFormatting.RED), true);
+        }
+    }
+
     private void applyReplayFrame(ReplayFrame frame) {
         setPos(frame.x(), frame.y(), frame.z());
         setYRot(frame.yaw());
@@ -364,6 +442,7 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_HEAD_YAW, frame.headYaw());
         entityData.set(REPLAY_CROUCHING, frame.crouching());
         entityData.set(REPLAY_SPRINTING, frame.sprinting());
+        entityData.set(REPLAY_FALLING, !frame.onGround());
     }
 
     private void tickServer() {
@@ -455,6 +534,23 @@ public final class ApparitionEntity extends Entity {
                 serverLevel.sendParticles(redDust, at.x, at.y, at.z, 28, 0.38D, 0.8D, 0.38D, 0.025D);
                 serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR,
                         at.x, at.y, at.z, 8, 0.28D, 0.45D, 0.28D, 0.08D);
+                switch (getDeathCause()) {
+                    case "fall" -> {
+                        serverLevel.sendParticles(ParticleTypes.CLOUD, at.x, at.y - 0.5D, at.z, 20, 0.55D, 0.12D, 0.55D, 0.035D);
+                        serverLevel.sendParticles(ParticleTypes.CRIT, at.x, at.y - 0.4D, at.z, 10, 0.3D, 0.15D, 0.3D, 0.08D);
+                        serverLevel.playSound(null, blockPosition(), SoundEvents.GENERIC_SMALL_FALL, SoundSource.AMBIENT, 0.7F, 0.8F);
+                    }
+                    case "drown" -> {
+                        serverLevel.sendParticles(ParticleTypes.BUBBLE, at.x, at.y, at.z, 28, 0.4D, 0.8D, 0.4D, 0.04D);
+                        serverLevel.sendParticles(ParticleTypes.SPLASH, at.x, at.y, at.z, 16, 0.35D, 0.5D, 0.35D, 0.06D);
+                    }
+                    case "lava", "hotFloor", "inFire", "onFire" -> {
+                        serverLevel.sendParticles(ParticleTypes.FLAME, at.x, at.y, at.z, 24, 0.4D, 0.8D, 0.4D, 0.05D);
+                        serverLevel.sendParticles(ParticleTypes.LAVA, at.x, at.y, at.z, 8, 0.3D, 0.4D, 0.3D, 0.02D);
+                        serverLevel.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 16, 0.35D, 0.7D, 0.35D, 0.03D);
+                    }
+                    default -> { }
+                }
             } else {
                 serverLevel.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z,
                         12, 0.34D, 0.75D, 0.34D, 0.018D);
@@ -546,6 +642,7 @@ public final class ApparitionEntity extends Entity {
             saved.putFloat("head_yaw", frame.headYaw());
             saved.putBoolean("crouching", frame.crouching());
             saved.putBoolean("sprinting", frame.sprinting());
+            saved.putBoolean("on_ground", frame.onGround());
             frames.add(saved);
         }
         tag.put("traces_replay_frames", frames);
@@ -558,5 +655,6 @@ public final class ApparitionEntity extends Entity {
     }
 
     private record ReplayFrame(long time, double x, double y, double z, float yaw, float pitch,
-                               float headYaw, boolean crouching, boolean sprinting) { }
+                               float headYaw, boolean crouching, boolean sprinting, boolean onGround) { }
+    private record KillerFrame(long time, double x, double y, double z, float yaw, float pitch) { }
 }

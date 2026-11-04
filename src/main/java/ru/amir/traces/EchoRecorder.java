@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -24,6 +25,7 @@ import net.minecraftforge.fml.common.Mod;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -54,6 +56,7 @@ public final class EchoRecorder {
 
         PlayerHistory history = historyFor(player);
         appendFrame(history, captureFrame(player, gameTime));
+        captureNearbyLivingEntities(player, history, gameTime);
         prune(history, gameTime);
     }
 
@@ -110,6 +113,13 @@ public final class EchoRecorder {
             memory.putDouble("attacker_y", attacker.getY());
             memory.putDouble("attacker_z", attacker.getZ());
             memory.putFloat("attacker_yaw", attacker.getYRot());
+            memory.putString("attacker_uuid", attacker.getUUID().toString());
+            EntityTrack attackerTrack = history.entityTracks.get(attacker.getUUID());
+            if (attackerTrack != null) {
+                ListTag attackerFrames = new ListTag();
+                for (CompoundTag frame : attackerTrack.frames) attackerFrames.add(frame.copy());
+                memory.put("attacker_frames", attackerFrames);
+            }
         }
         Entity direct = source.getDirectEntity();
         if (direct != null && direct != attacker) {
@@ -176,6 +186,40 @@ public final class EchoRecorder {
         return frame;
     }
 
+    private static void captureNearbyLivingEntities(ServerPlayer player, PlayerHistory history, long gameTime) {
+        var nearby = player.level().getEntitiesOfClass(LivingEntity.class,
+                player.getBoundingBox().inflate(16.0D), entity -> entity != player)
+                .stream().sorted(Comparator.comparingDouble(player::distanceToSqr)).limit(16).toList();
+        for (LivingEntity entity : nearby) {
+            UUID uuid = entity.getUUID();
+            EntityTrack track = history.entityTracks.computeIfAbsent(uuid,
+                    ignored -> new EntityTrack(BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString()));
+            CompoundTag frame = new CompoundTag();
+            frame.putLong("time", gameTime);
+            frame.putDouble("x", entity.getX());
+            frame.putDouble("y", entity.getY());
+            frame.putDouble("z", entity.getZ());
+            frame.putFloat("yaw", entity.getYRot());
+            frame.putFloat("pitch", entity.getXRot());
+            track.frames.addLast(frame);
+            while (track.frames.size() > RECORDING_TICKS) track.frames.removeFirst();
+        }
+        long oldestTime = gameTime - RECORDING_TICKS;
+        history.entityTracks.values().forEach(track -> {
+            while (!track.frames.isEmpty() && track.frames.peekFirst().getLong("time") < oldestTime) {
+                track.frames.removeFirst();
+            }
+        });
+        history.entityTracks.values().removeIf(track -> track.frames.isEmpty());
+        while (history.entityTracks.size() > 64) {
+            UUID oldest = history.entityTracks.entrySet().stream()
+                    .min(Comparator.comparingLong(entry -> entry.getValue().frames.peekLast().getLong("time")))
+                    .map(Map.Entry::getKey).orElse(null);
+            if (oldest == null) break;
+            history.entityTracks.remove(oldest);
+        }
+    }
+
     private static void appendFrame(PlayerHistory history, CompoundTag frame) {
         if (!history.frames.isEmpty()
                 && history.frames.peekLast().getLong("time") == frame.getLong("time")) {
@@ -227,5 +271,12 @@ public final class EchoRecorder {
     private static final class PlayerHistory {
         private final Deque<CompoundTag> frames = new ArrayDeque<>();
         private final Deque<CompoundTag> actions = new ArrayDeque<>();
+        private final Map<UUID, EntityTrack> entityTracks = new HashMap<>();
+    }
+
+    private static final class EntityTrack {
+        private final String type;
+        private final Deque<CompoundTag> frames = new ArrayDeque<>();
+        private EntityTrack(String type) { this.type = type; }
     }
 }

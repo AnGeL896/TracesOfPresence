@@ -8,5 +8,10 @@
   "message.traces.echo_whisper_3": "Did you see that?",
   "message.traces.death_echo_ending": "The world remembers every death.",
   "message.traces.death_echo_killer": "Killed by %s",
-  "message.traces.death_echo_creeper": "%s exploded nearby..."
+  "message.traces.death_echo_creeper": "%s exploded nearby...",
+  "message.traces.death_echo_fall": "The apparition fell and struck the ground...",
+  "message.traces.death_echo_drown": "The apparition drowned...",
+  "message.traces.death_echo_lava": "The apparition was consumed by lava...",
+  "message.traces.death_echo_fire": "The apparition burned to death...",
+  "message.traces.death_echo_cause": "Cause of death: %s"
 }

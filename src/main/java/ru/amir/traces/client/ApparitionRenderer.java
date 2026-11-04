@@ -65,7 +65,8 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
                               MultiBufferSource buffers, int packedLight) {
         float cueTime = echo.getDeathCueTime(partialTick);
         String typeId = echo.getKillerType();
-        if (cueTime < 0.0F || cueTime >= 40.0F || typeId.isEmpty()) return;
+        boolean finalCue = cueTime >= 0.0F && cueTime < 40.0F;
+        if (typeId.isEmpty() || (!finalCue && !echo.isKillerVisible())) return;
         Entity visual = killerVisuals.get(typeId);
         if (visual == null) {
             ResourceLocation id = ResourceLocation.tryParse(typeId);
@@ -80,7 +81,11 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
             killerVisuals.put(typeId, visual);
         }
         float x = echo.getKillerX(), y = echo.getKillerY(), z = echo.getKillerZ();
-        float yaw = echo.getKillerYaw();
+        double toEchoX = echo.getX() - x;
+        double toEchoZ = echo.getZ() - z;
+        float yaw = Math.abs(toEchoX) + Math.abs(toEchoZ) < 0.001D
+                ? echo.getKillerYaw()
+                : (float) Math.toDegrees(Math.atan2(-toEchoX, toEchoZ));
         visual.setPos(x, y, z);
         visual.setYRot(yaw);
         visual.yRotO = yaw;
@@ -88,7 +93,8 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
             living.setYHeadRot(yaw);
             living.yHeadRotO = yaw;
         }
-        float scale = echo.isCreeperDeath() ? 0.75F + 0.30F * Mth.clamp(cueTime / 38.0F, 0.0F, 1.0F) : 1.0F;
+        float scale = echo.isCreeperDeath() && finalCue
+                ? 0.75F + 0.30F * Mth.clamp(cueTime / 38.0F, 0.0F, 1.0F) : 1.0F;
         pose.pushPose();
         pose.translate(x - echo.getX(), y - echo.getY(), z - echo.getZ());
         pose.scale(scale, scale, scale);

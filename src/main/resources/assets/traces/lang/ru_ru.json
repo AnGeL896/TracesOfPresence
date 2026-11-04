@@ -8,5 +8,10 @@
   "message.traces.echo_whisper_3": "Ты это видел?",
   "message.traces.death_echo_ending": "Мир помнит каждую смерть.",
   "message.traces.death_echo_killer": "Убит: %s",
-  "message.traces.death_echo_creeper": "%s взорвался рядом..."
+  "message.traces.death_echo_creeper": "%s взорвался рядом...",
+  "message.traces.death_echo_fall": "Призрак сорвался вниз и ударился о землю...",
+  "message.traces.death_echo_drown": "Призрак утонул...",
+  "message.traces.death_echo_lava": "Лава поглотила призрака...",
+  "message.traces.death_echo_fire": "Призрак сгорел...",
+  "message.traces.death_echo_cause": "Причина смерти: %s"
 }
