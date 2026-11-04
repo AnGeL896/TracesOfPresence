@@ -143,15 +143,18 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
                 ? 0.75F + 0.30F * Mth.clamp(cueTime / 38.0F, 0.0F, 1.0F) : 1.0F;
         pose.pushPose();
         pose.translate(x - echo.getX(), y - echo.getY(), z - echo.getZ());
-        pose.scale(scale, scale, scale);
         float cueFade = cueTime < 40.0F ? 0.0F : smoothStep(Mth.clamp((cueTime - 40.0F) / 30.0F, 0.0F, 1.0F));
+        pose.scale(scale * (1.0F - cueFade), scale * (1.0F - cueFade), scale * (1.0F - cueFade));
+        if (cueFade > 0.0F) {
+            pose.translate(0.0D, 0.85D, 0.0D);
+            pose.mulPose(Axis.ZP.rotation(cueFade * 1.25F));
+            pose.translate(0.0D, -0.85D, 0.0D);
+        }
+        if (visual instanceof LivingEntity living) living.setInvisible(false);
+        Minecraft.getInstance().getEntityRenderDispatcher().render(visual, 0.0D, 0.0D, 0.0D,
+                yaw, partialTick, pose, buffers, packedLight);
         if (visual instanceof LivingEntity living && cueFade > 0.0F) {
-            living.setInvisible(true);
             renderSpectralKiller(living, partialTick, yaw, cueFade, pose, buffers, packedLight);
-        } else {
-            if (visual instanceof LivingEntity living) living.setInvisible(false);
-            Minecraft.getInstance().getEntityRenderDispatcher().render(visual, 0.0D, 0.0D, 0.0D,
-                    yaw, partialTick, pose, buffers, packedLight);
         }
         pose.popPose();
     }
@@ -163,11 +166,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         if (!(renderer instanceof net.minecraft.client.renderer.entity.LivingEntityRenderer livingRenderer)) return;
         var mobModel = livingRenderer.getModel();
         float alpha = 1.0F - fade;
-        float roll = fade * (float) (Math.PI * 0.48D);
         pose.pushPose();
-        pose.translate(0.0D, 0.85D, 0.0D);
-        pose.mulPose(Axis.ZP.rotation(roll));
-        pose.translate(0.0D, -0.85D, 0.0D);
         pose.translate(0.0D, 1.5D, 0.0D);
         pose.mulPose(Axis.YP.rotationDegrees(180.0F - yaw));
         pose.scale(-1.0F, -1.0F, 1.0F);
