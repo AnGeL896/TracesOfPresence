@@ -1,0 +1,6 @@
+{
+  "multipart": [
+    { "apply": { "model": "traces:block/death_scar" } },
+    { "apply": { "model": "traces:block/death_scar_overlay" } }
+  ]
+}

@@ -22,4 +22,11 @@ public class ModBlocks {
                             .noOcclusion()
                             .noCollission()
                     ));
+
+    public static final RegistryObject<Block> DEATH_SCAR =
+            BLOCKS.register("death_scar",
+                    () -> new Block(BlockBehaviour.Properties.of()
+                            .strength(0.3F)
+                            .sound(SoundType.GRASS)
+                    ));
 }

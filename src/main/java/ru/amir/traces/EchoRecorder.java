@@ -18,6 +18,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.level.BlockEvent;
@@ -148,6 +149,13 @@ public final class EchoRecorder {
         memory.put("actions", actions);
 
         player.getPersistentData().put(DEATH_MEMORY_KEY, memory);
+        if (level.random.nextBoolean()) {
+            BlockPos scarGround = BlockPos.containing(player.getX(), player.getY(), player.getZ()).below();
+            BlockState ground = level.getBlockState(scarGround);
+            if (isNaturalScarGround(ground) && level.getBlockState(scarGround.above()).isAir()) {
+                level.setBlock(scarGround, ModBlocks.DEATH_SCAR.get().defaultBlockState(), 3);
+            }
+        }
     }
 
     @SubscribeEvent
@@ -186,6 +194,13 @@ public final class EchoRecorder {
     /** Clears the saved recording after a future echo has consumed it. */
     public static void clearDeathMemory(ServerPlayer player) {
         player.getPersistentData().remove(DEATH_MEMORY_KEY);
+    }
+
+    private static boolean isNaturalScarGround(BlockState state) {
+        return state.is(Blocks.GRASS_BLOCK) || state.is(Blocks.PODZOL)
+                || state.is(Blocks.DIRT) || state.is(Blocks.COARSE_DIRT)
+                || state.is(Blocks.MOSS_BLOCK) || state.is(Blocks.ROOTED_DIRT)
+                || state.is(Blocks.MYCELIUM);
     }
 
     private static CompoundTag captureFrame(ServerPlayer player, long gameTime) {
