@@ -117,7 +117,7 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         leftArm.zRot = 0.08F + sway - 0.30F * fallBlend;
         rightArm.zRot = -0.08F + sway + 0.30F * fallBlend;
         if (apparition != null && apparition.isWorkReplay()) {
-            float beat = Mth.sin(ageInTicks * 0.72F);
+            float beat = Mth.sin(ageInTicks * 0.48F);
             switch (apparition.getGreenAction()) {
                 case 1 -> {
                     rightArm.xRot = -1.72F + beat * 0.32F;

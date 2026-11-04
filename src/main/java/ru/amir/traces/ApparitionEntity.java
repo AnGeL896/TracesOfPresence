@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -454,6 +455,16 @@ public final class ApparitionEntity extends Entity {
             double pz = from.target().getZ() + 0.5D;
             DustParticleOptions green = new DustParticleOptions(new Vector3f(0.10F, 0.95F, 0.35F), 0.8F);
             serverLevel.sendParticles(green, px, py, pz, 2, 0.18D, 0.18D, 0.18D, 0.008D);
+            if (action == 1 || action == 2) {
+                ResourceLocation blockId = ResourceLocation.tryParse(from.itemId());
+                var block = blockId == null ? null : BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
+                if (block != null && !block.defaultBlockState().isAir()) {
+                    BlockParticleOption fragments = new BlockParticleOption(ParticleTypes.BLOCK,
+                            block.defaultBlockState());
+                    serverLevel.sendParticles(fragments, px, py, pz, action == 1 ? 5 : 3,
+                            0.18D, 0.2D, 0.18D, 0.06D);
+                }
+            }
             if (action == 1) serverLevel.sendParticles(ParticleTypes.CRIT, px, py, pz, 1, 0.12D, 0.16D, 0.12D, 0.02D);
             if (action == 2) serverLevel.sendParticles(ParticleTypes.HAPPY_VILLAGER, px, py, pz, 1, 0.16D, 0.2D, 0.16D, 0.005D);
             if (action == 3) serverLevel.sendParticles(ParticleTypes.ENCHANT, px, py, pz, 2, 0.16D, 0.18D, 0.16D, 0.2D);
