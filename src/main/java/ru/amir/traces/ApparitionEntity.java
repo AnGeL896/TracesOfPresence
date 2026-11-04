@@ -43,6 +43,8 @@ public final class ApparitionEntity extends Entity {
     private static final double ARRIVAL_DISTANCE = 0.55D;
     private static final double REPLAY_TIME_SCALE = 0.68D;
     private static final int DEATH_CUE_TICKS = 40;
+    private static final DustParticleOptions GREEN_WORK_DUST =
+            new DustParticleOptions(new Vector3f(0.10F, 0.95F, 0.35F), 0.8F);
 
     private static final EntityDataAccessor<BlockPos> DESTINATION =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BLOCK_POS);
@@ -130,6 +132,7 @@ public final class ApparitionEntity extends Entity {
     private List<KillerFrame> killerFrames = List.of();
     private List<ReplayFrame> replayFrames = List.of();
     private List<WorkFrame> workFrames = List.of();
+    private List<BlockParticleOption> workBlockParticles = List.of();
     private int[] workFrameDurations = new int[0];
     private int replayFrameCursor;
     private int killerFrameCursor;
@@ -259,6 +262,7 @@ public final class ApparitionEntity extends Entity {
     public boolean setWorkReplay(ListTag actions) {
         if (actions.size() < 3) return false;
         List<WorkFrame> loaded = new ArrayList<>(actions.size());
+        List<BlockParticleOption> blockParticles = new ArrayList<>(actions.size());
         for (int i = 0; i < actions.size(); i++) {
             CompoundTag action = actions.getCompound(i);
             double actorX = action.getDouble("actor_x");
@@ -270,8 +274,19 @@ public final class ApparitionEntity extends Entity {
             loaded.add(new WorkFrame(actorX, actorY, actorZ, action.getFloat("yaw"),
                     action.getString("type"), target, action.getString("id"),
                     action.getString("main_hand"), action.getString("off_hand")));
+            BlockParticleOption blockParticle = null;
+            String type = action.getString("type");
+            if ("break".equals(type) || "place".equals(type)) {
+                ResourceLocation blockId = ResourceLocation.tryParse(action.getString("id"));
+                var block = blockId == null ? null : BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
+                if (block != null && !block.defaultBlockState().isAir()) {
+                    blockParticle = new BlockParticleOption(ParticleTypes.BLOCK, block.defaultBlockState());
+                }
+            }
+            blockParticles.add(blockParticle);
         }
         workFrames = loaded;
+        workBlockParticles = blockParticles;
         workFrameDurations = new int[workFrames.size()];
         for (int i = 0; i < workFrames.size(); i++) {
             int duration = 30;
@@ -479,14 +494,10 @@ public final class ApparitionEntity extends Entity {
             double px = from.target().getX() + 0.5D;
             double py = from.target().getY() + 0.65D;
             double pz = from.target().getZ() + 0.5D;
-            DustParticleOptions green = new DustParticleOptions(new Vector3f(0.10F, 0.95F, 0.35F), 0.8F);
-            serverLevel.sendParticles(green, px, py, pz, 2, 0.18D, 0.18D, 0.18D, 0.008D);
-            if (action == 1 || action == 2) {
-                ResourceLocation blockId = ResourceLocation.tryParse(from.itemId());
-                var block = blockId == null ? null : BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
-                if (block != null && !block.defaultBlockState().isAir()) {
-                    BlockParticleOption fragments = new BlockParticleOption(ParticleTypes.BLOCK,
-                            block.defaultBlockState());
+            serverLevel.sendParticles(GREEN_WORK_DUST, px, py, pz, 2, 0.18D, 0.18D, 0.18D, 0.008D);
+            if ((action == 1 || action == 2) && index < workBlockParticles.size()) {
+                BlockParticleOption fragments = workBlockParticles.get(index);
+                if (fragments != null) {
                     serverLevel.sendParticles(fragments, px, py, pz, action == 1 ? 5 : 3,
                             0.18D, 0.2D, 0.18D, 0.06D);
                 }
