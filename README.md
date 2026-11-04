@@ -1,11 +1,11 @@
 # Traces of Presence
 
-Minecraft Forge 1.20.1, version 0.5.12.
+Minecraft Forge 1.20.1, version 0.5.13.
 
 ## Echoes
 
 - **Blue:** appears at night in forests and taigas near a Life Echo crystal.
-- **Green:** can replay recent mining, block placement, and crafting actions near their work site.
+- **Green:** can replay recent mining, block placement, and crafting actions around a coherent work site in any dimension.
 - **Red:** replays the last ten seconds before a player's death when they return nearby.
 
 Encounter chances and cooldowns are in `config/traces-common.toml`. Set a chance to `1.0` to force frequent eligible checks while testing.
