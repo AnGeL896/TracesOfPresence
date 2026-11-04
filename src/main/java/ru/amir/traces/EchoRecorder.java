@@ -32,6 +32,7 @@ import java.util.Deque;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -225,9 +226,10 @@ public final class EchoRecorder {
     }
 
     private static void captureNearbyLivingEntities(ServerPlayer player, PlayerHistory history, long gameTime) {
-        var nearby = player.level().getEntitiesOfClass(LivingEntity.class,
-                player.getBoundingBox().inflate(16.0D), entity -> entity != player)
-                .stream().sorted(Comparator.comparingDouble(player::distanceToSqr)).limit(16).toList();
+        List<LivingEntity> nearby = player.level().getEntitiesOfClass(LivingEntity.class,
+                player.getBoundingBox().inflate(16.0D), entity -> entity != player);
+        nearby.sort(Comparator.comparingDouble(player::distanceToSqr));
+        if (nearby.size() > 16) nearby = nearby.subList(0, 16);
         for (LivingEntity entity : nearby) {
             UUID uuid = entity.getUUID();
             EntityTrack track = history.entityTracks.computeIfAbsent(uuid,
