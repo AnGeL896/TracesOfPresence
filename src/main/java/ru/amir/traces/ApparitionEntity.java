@@ -57,9 +57,14 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Float> REPLAY_HEAD_YAW =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> REPLAY_LIMB_PHASE =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> REPLAY_SPRINTING =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
 
     private double currentWalkSpeed;
     private float previousWalkBlend;
+    private float previousReplayLimbPhase;
     private List<ReplayFrame> replayFrames = List.of();
     private int replayElapsedTicks;
     private boolean replayMessageSent;
@@ -80,6 +85,8 @@ public final class ApparitionEntity extends Entity {
         entityData.define(DEATH_REPLAY, false);
         entityData.define(REPLAY_CROUCHING, false);
         entityData.define(REPLAY_HEAD_YAW, 0.0F);
+        entityData.define(REPLAY_LIMB_PHASE, 0.0F);
+        entityData.define(REPLAY_SPRINTING, false);
     }
 
     public void setDestination(BlockPos destination) {
@@ -103,6 +110,14 @@ public final class ApparitionEntity extends Entity {
         return entityData.get(REPLAY_HEAD_YAW);
     }
 
+    public float getReplayLimbPhase(float partialTick) {
+        return Mth.lerp(partialTick, previousReplayLimbPhase, entityData.get(REPLAY_LIMB_PHASE));
+    }
+
+    public boolean isReplaySprinting() {
+        return entityData.get(REPLAY_SPRINTING);
+    }
+
     public boolean setDeathReplay(CompoundTag memory) {
         ListTag frames = memory.getList("frames", Tag.TAG_COMPOUND);
         if (frames.size() < 2) return false;
@@ -113,6 +128,8 @@ public final class ApparitionEntity extends Entity {
         setXRot(first.pitch());
         entityData.set(REPLAY_HEAD_YAW, first.headYaw());
         entityData.set(REPLAY_CROUCHING, first.crouching());
+        entityData.set(REPLAY_LIMB_PHASE, 0.0F);
+        entityData.set(REPLAY_SPRINTING, first.sprinting());
         entityData.set(DEATH_REPLAY, true);
         replayElapsedTicks = 0;
         return true;
@@ -148,6 +165,7 @@ public final class ApparitionEntity extends Entity {
     @Override
     public void tick() {
         previousWalkBlend = entityData.get(WALK_BLEND);
+        previousReplayLimbPhase = entityData.get(REPLAY_LIMB_PHASE);
         super.tick();
 
         if (!level().isClientSide) {
@@ -204,17 +222,51 @@ public final class ApparitionEntity extends Entity {
         float amount = (float) (targetTime - from.time()) / Math.max(1L, to.time() - from.time());
         double oldX = getX();
         double oldZ = getZ();
-        double x = Mth.lerp(amount, from.x(), to.x());
-        double y = Mth.lerp(amount, from.y(), to.y());
-        double z = Mth.lerp(amount, from.z(), to.z());
+        double x = interpolatePosition(index, amount, 0);
+        double y = interpolatePosition(index, amount, 1);
+        double z = interpolatePosition(index, amount, 2);
         setPos(x, y, z);
         setYRot(Mth.rotLerp(amount, from.yaw(), to.yaw()));
         setXRot(Mth.lerp(amount, from.pitch(), to.pitch()));
         entityData.set(REPLAY_HEAD_YAW, Mth.rotLerp(amount, from.headYaw(), to.headYaw()));
         entityData.set(REPLAY_CROUCHING, amount < 0.5F ? from.crouching() : to.crouching());
+        entityData.set(REPLAY_SPRINTING, amount < 0.5F ? from.sprinting() : to.sprinting());
 
-        float movement = (float) Math.sqrt((x - oldX) * (x - oldX) + (z - oldZ) * (z - oldZ));
-        updateWalkBlend(Mth.clamp(movement / 0.025F, 0.0F, 1.0F));
+        float horizontalMovement = (float) Math.hypot(x - oldX, z - oldZ);
+        entityData.set(REPLAY_LIMB_PHASE,
+                entityData.get(REPLAY_LIMB_PHASE) + horizontalMovement * 4.0F);
+        updateWalkBlend(Mth.clamp(horizontalMovement / 0.18F, 0.0F, 1.0F));
+    }
+
+    private double interpolatePosition(int frameIndex, float amount, int axis) {
+        ReplayFrame from = replayFrames.get(frameIndex);
+        ReplayFrame to = replayFrames.get(frameIndex + 1);
+        ReplayFrame previous = frameIndex > 0 ? replayFrames.get(frameIndex - 1) : from;
+        ReplayFrame next = frameIndex + 2 < replayFrames.size()
+                ? replayFrames.get(frameIndex + 2) : to;
+
+        double duration = Math.max(1L, to.time() - from.time());
+        double previousDuration = Math.max(1L, to.time() - previous.time());
+        double nextDuration = Math.max(1L, next.time() - from.time());
+        double start = replayCoordinate(from, axis);
+        double end = replayCoordinate(to, axis);
+        double startTangent = (end - replayCoordinate(previous, axis)) * duration / previousDuration;
+        double endTangent = (replayCoordinate(next, axis) - start) * duration / nextDuration;
+
+        double t2 = amount * amount;
+        double t3 = t2 * amount;
+        return (2.0D * t3 - 3.0D * t2 + 1.0D) * start
+                + (t3 - 2.0D * t2 + amount) * startTangent
+                + (-2.0D * t3 + 3.0D * t2) * end
+                + (t3 - t2) * endTangent;
+    }
+
+    private static double replayCoordinate(ReplayFrame frame, int axis) {
+        return switch (axis) {
+            case 0 -> frame.x();
+            case 1 -> frame.y();
+            default -> frame.z();
+        };
     }
 
     private void applyReplayFrame(ReplayFrame frame) {
@@ -223,6 +275,7 @@ public final class ApparitionEntity extends Entity {
         setXRot(frame.pitch());
         entityData.set(REPLAY_HEAD_YAW, frame.headYaw());
         entityData.set(REPLAY_CROUCHING, frame.crouching());
+        entityData.set(REPLAY_SPRINTING, frame.sprinting());
     }
 
     private void tickServer() {

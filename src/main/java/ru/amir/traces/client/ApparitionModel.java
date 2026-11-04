@@ -61,25 +61,30 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     @Override
     public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks,
                           float netHeadYaw, float headPitch) {
-        deathReplay = entity instanceof ApparitionEntity apparition && apparition.isDeathReplay();
-        float look = Mth.sin(ageInTicks * 0.045F) * 0.27F;
-        head.yRot = netHeadYaw * ((float) Math.PI / 180.0F) + look;
-        head.xRot = headPitch * ((float) Math.PI / 180.0F) + Mth.sin(ageInTicks * 0.035F) * 0.06F;
-        float walking = entity instanceof ApparitionEntity apparition
-                ? apparition.getWalkBlend(limbSwing)
-                : 0.0F;
-        float sway = Mth.sin(ageInTicks * 0.055F) * 0.04F;
-        float step = Mth.sin(ageInTicks * 0.28F) * walking;
-        float idleArmDrift = Mth.sin(ageInTicks * 0.07F) * 0.035F;
-        head.zRot = Mth.sin(ageInTicks * 0.04F) * 0.02F;
+        ApparitionEntity apparition = entity instanceof ApparitionEntity echo ? echo : null;
+        deathReplay = apparition != null && apparition.isDeathReplay();
+        float idleLook = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.045F) * 0.27F;
+        head.yRot = netHeadYaw * ((float) Math.PI / 180.0F) + idleLook;
+        float idlePitch = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.035F) * 0.06F;
+        head.xRot = headPitch * ((float) Math.PI / 180.0F) + idlePitch;
+        float walking = apparition != null ? apparition.getWalkBlend(limbSwing) : 0.0F;
+        boolean sprinting = deathReplay && apparition.isReplaySprinting();
+        float sway = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.055F) * 0.04F;
+        float gaitPhase = deathReplay
+                ? apparition.getReplayLimbPhase(limbSwing) * 0.6662F
+                : ageInTicks * 0.28F;
+        float step = Mth.sin(gaitPhase) * walking;
+        float idleArmDrift = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.07F) * 0.035F;
+        head.zRot = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.04F) * 0.02F;
         body.zRot = sway;
-        boolean crouching = entity instanceof ApparitionEntity apparition
-                && apparition.isDeathReplay() && apparition.isReplayCrouching();
-        body.xRot = crouching ? 0.22F : -0.035F * walking;
+        boolean crouching = deathReplay && apparition.isReplayCrouching();
+        body.xRot = crouching ? 0.22F : (sprinting ? -0.10F : -0.035F * walking);
         body.y = crouching ? 1.5F : 0.0F;
         head.y = crouching ? -1.0F : 0.0F;
-        leftArm.xRot = -0.10F - step * 0.24F + idleArmDrift;
-        rightArm.xRot = -0.08F + step * 0.24F + Mth.sin(ageInTicks * 0.07F + 1.2F) * 0.035F;
+        float armSwing = sprinting ? 0.28F : 0.24F;
+        float secondaryArmDrift = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.07F + 1.2F) * 0.035F;
+        leftArm.xRot = -0.10F - step * armSwing + idleArmDrift;
+        rightArm.xRot = -0.08F + step * armSwing + secondaryArmDrift;
         leftArm.zRot = 0.08F + sway;
         rightArm.zRot = -0.08F + sway;
         leftLeg.xRot = step * 0.34F;
