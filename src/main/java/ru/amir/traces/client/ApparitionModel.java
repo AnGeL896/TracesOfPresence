@@ -6,6 +6,7 @@ import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
@@ -43,19 +44,40 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     public static LayerDefinition createLayer() {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
-        root.addOrReplaceChild("head", CubeListBuilder.create().texOffs(0, 0)
+
+        PartDefinition head = root.addOrReplaceChild("head", CubeListBuilder.create().texOffs(0, 0)
                 .addBox(-4, -8, -4, 8, 8, 8), PartPose.ZERO);
-        root.addOrReplaceChild("body", CubeListBuilder.create().texOffs(16, 16)
+        head.addOrReplaceChild("headwear", CubeListBuilder.create().texOffs(32, 0)
+                .addBox(-4, -8, -4, 8, 8, 8, new CubeDeformation(0.25F)), PartPose.ZERO);
+
+        PartDefinition body = root.addOrReplaceChild("body", CubeListBuilder.create().texOffs(16, 16)
                 .addBox(-4, 0, -2, 8, 12, 4), PartPose.ZERO);
-        root.addOrReplaceChild("left_arm", CubeListBuilder.create().texOffs(40, 16)
-                .addBox(-1, -2, -2, 4, 12, 4), PartPose.offset(5, 2, 0));
-        root.addOrReplaceChild("right_arm", CubeListBuilder.create().texOffs(40, 16).mirror()
-                .addBox(-3, -2, -2, 4, 12, 4), PartPose.offset(-5, 2, 0));
-        root.addOrReplaceChild("left_leg", CubeListBuilder.create().texOffs(0, 16)
-                .addBox(-2, 0, -2, 4, 12, 4), PartPose.offset(2, 12, 0));
-        root.addOrReplaceChild("right_leg", CubeListBuilder.create().texOffs(0, 16).mirror()
-                .addBox(-2, 0, -2, 4, 12, 4), PartPose.offset(-2, 12, 0));
-        return LayerDefinition.create(mesh, 64, 32);
+        body.addOrReplaceChild("jacket", CubeListBuilder.create().texOffs(16, 32)
+                .addBox(-4, 0, -2, 8, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+
+        PartDefinition rightArm = root.addOrReplaceChild("right_arm",
+                CubeListBuilder.create().texOffs(40, 16).mirror()
+                        .addBox(-3, -2, -2, 4, 12, 4), PartPose.offset(-5, 2, 0));
+        rightArm.addOrReplaceChild("right_sleeve", CubeListBuilder.create().texOffs(40, 32).mirror()
+                .addBox(-3, -2, -2, 4, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+        PartDefinition leftArm = root.addOrReplaceChild("left_arm",
+                CubeListBuilder.create().texOffs(32, 48)
+                        .addBox(-1, -2, -2, 4, 12, 4), PartPose.offset(5, 2, 0));
+        leftArm.addOrReplaceChild("left_sleeve", CubeListBuilder.create().texOffs(48, 48)
+                .addBox(-1, -2, -2, 4, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+
+        PartDefinition rightLeg = root.addOrReplaceChild("right_leg",
+                CubeListBuilder.create().texOffs(0, 16).mirror()
+                        .addBox(-2, 0, -2, 4, 12, 4), PartPose.offset(-2, 12, 0));
+        rightLeg.addOrReplaceChild("right_pants", CubeListBuilder.create().texOffs(0, 32).mirror()
+                .addBox(-2, 0, -2, 4, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+        PartDefinition leftLeg = root.addOrReplaceChild("left_leg",
+                CubeListBuilder.create().texOffs(16, 48)
+                        .addBox(-2, 0, -2, 4, 12, 4), PartPose.offset(2, 12, 0));
+        leftLeg.addOrReplaceChild("left_pants", CubeListBuilder.create().texOffs(0, 48)
+                .addBox(-2, 0, -2, 4, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+
+        return LayerDefinition.create(mesh, 64, 64);
     }
 
     @Override
@@ -95,6 +117,6 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     public void renderToBuffer(PoseStack pose, VertexConsumer consumer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         root.render(pose, consumer, packedLight, OverlayTexture.NO_OVERLAY,
-                deathReplay ? 1.0F : 0.72F, deathReplay ? 0.30F : 0.88F, deathReplay ? 0.24F : 1.0F, alpha);
+                1.0F, 1.0F, 1.0F, alpha);
     }
 }

@@ -14,8 +14,12 @@ import ru.amir.traces.ApparitionEntity;
 import ru.amir.traces.TracesOfPresence;
 
 public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
-    private static final ResourceLocation TEXTURE = new ResourceLocation(
-            TracesOfPresence.MOD_ID, "textures/entity/apparition.png");
+    private static final ResourceLocation BLUE_TEXTURE = new ResourceLocation(
+            TracesOfPresence.MOD_ID, "textures/entity/apparition_blue.png");
+    private static final ResourceLocation GREEN_TEXTURE = new ResourceLocation(
+            TracesOfPresence.MOD_ID, "textures/entity/apparition_green.png");
+    private static final ResourceLocation RED_TEXTURE = new ResourceLocation(
+            TracesOfPresence.MOD_ID, "textures/entity/apparition_red.png");
     private final ApparitionModel<ApparitionEntity> model;
 
     public ApparitionRenderer(EntityRendererProvider.Context context) {
@@ -41,7 +45,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         int glowLight = entity.getGlowIntensity(partialTick) > 0.02F
                 ? LightTexture.pack(15, 15)
                 : packedLight;
-        model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(TEXTURE)), glowLight,
+        model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(getTextureLocation(entity))), glowLight,
                 OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, entity.getFadeAlpha(partialTick));
         pose.popPose();
         super.render(entity, yaw, partialTick, pose, buffers, packedLight);
@@ -49,6 +53,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
 
     @Override
     public ResourceLocation getTextureLocation(ApparitionEntity entity) {
-        return TEXTURE;
+        if (entity.isDeathReplay()) return RED_TEXTURE;
+        return entity.isGreenEcho() ? GREEN_TEXTURE : BLUE_TEXTURE;
     }
 }

@@ -62,6 +62,8 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Boolean> REPLAY_SPRINTING =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> GREEN_ECHO =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
 
     private double currentWalkSpeed;
     private float previousWalkBlend;
@@ -88,6 +90,7 @@ public final class ApparitionEntity extends Entity {
         entityData.define(REPLAY_HEAD_YAW, 0.0F);
         entityData.define(REPLAY_LIMB_PHASE, 0.0F);
         entityData.define(REPLAY_SPRINTING, false);
+        entityData.define(GREEN_ECHO, false);
     }
 
     public void setDestination(BlockPos destination) {
@@ -119,6 +122,14 @@ public final class ApparitionEntity extends Entity {
         return entityData.get(REPLAY_SPRINTING);
     }
 
+    public boolean isGreenEcho() {
+        return entityData.get(GREEN_ECHO);
+    }
+
+    public void setGreenEcho() {
+        entityData.set(GREEN_ECHO, true);
+    }
+
     public boolean setDeathReplay(CompoundTag memory) {
         ListTag frames = memory.getList("frames", Tag.TAG_COMPOUND);
         if (frames.size() < 2) return false;
@@ -131,6 +142,7 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_CROUCHING, first.crouching());
         entityData.set(REPLAY_LIMB_PHASE, 0.0F);
         entityData.set(REPLAY_SPRINTING, first.sprinting());
+        entityData.set(GREEN_ECHO, false);
         entityData.set(DEATH_REPLAY, true);
         replayElapsedTime = 0.0D;
         return true;
