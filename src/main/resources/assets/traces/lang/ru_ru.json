@@ -6,5 +6,7 @@
   "message.traces.echo_whisper_1": "Здесь кто-то был…",
   "message.traces.echo_whisper_2": "Лес будто затаился.",
   "message.traces.echo_whisper_3": "Ты это видел?",
-  "message.traces.death_echo_ending": "Мир помнит каждую смерть."
+  "message.traces.death_echo_ending": "Мир помнит каждую смерть.",
+  "message.traces.death_echo_killer": "Убит: %s",
+  "message.traces.death_echo_creeper": "%s взорвался рядом..."
 }

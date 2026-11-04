@@ -109,6 +109,7 @@ public final class EchoRecorder {
             memory.putDouble("attacker_x", attacker.getX());
             memory.putDouble("attacker_y", attacker.getY());
             memory.putDouble("attacker_z", attacker.getZ());
+            memory.putFloat("attacker_yaw", attacker.getYRot());
         }
         Entity direct = source.getDirectEntity();
         if (direct != null && direct != attacker) {

@@ -2,6 +2,7 @@ package ru.amir.traces.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -9,6 +10,13 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.core.registries.BuiltInRegistries;
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.util.Mth;
 import ru.amir.traces.ApparitionEntity;
 import ru.amir.traces.TracesOfPresence;
@@ -21,6 +29,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
     private static final ResourceLocation RED_TEXTURE = new ResourceLocation(
             TracesOfPresence.MOD_ID, "textures/entity/apparition_red.png");
     private final ApparitionModel<ApparitionEntity> model;
+    private final Map<String, Entity> killerVisuals = new HashMap<>();
 
     public ApparitionRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -48,7 +57,44 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(getTextureLocation(entity))), glowLight,
                 OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, entity.getFadeAlpha(partialTick));
         pose.popPose();
+        renderKiller(entity, partialTick, pose, buffers, packedLight);
         super.render(entity, yaw, partialTick, pose, buffers, packedLight);
+    }
+
+    private void renderKiller(ApparitionEntity echo, float partialTick, PoseStack pose,
+                              MultiBufferSource buffers, int packedLight) {
+        float cueTime = echo.getDeathCueTime(partialTick);
+        String typeId = echo.getKillerType();
+        if (cueTime < 0.0F || cueTime >= 40.0F || typeId.isEmpty()) return;
+        Entity visual = killerVisuals.get(typeId);
+        if (visual == null) {
+            ResourceLocation id = ResourceLocation.tryParse(typeId);
+            EntityType<?> type = id == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
+            if (type == null || type == EntityType.PLAYER || type == ru.amir.traces.ModEntities.APPARITION.get()) return;
+            visual = type.create(echo.level());
+            if (visual == null) return;
+            visual.setNoGravity(true);
+            visual.setSilent(true);
+            visual.setInvulnerable(true);
+            if (visual instanceof Mob mob) mob.setNoAi(true);
+            killerVisuals.put(typeId, visual);
+        }
+        float x = echo.getKillerX(), y = echo.getKillerY(), z = echo.getKillerZ();
+        float yaw = echo.getKillerYaw();
+        visual.setPos(x, y, z);
+        visual.setYRot(yaw);
+        visual.yRotO = yaw;
+        if (visual instanceof LivingEntity living) {
+            living.setYHeadRot(yaw);
+            living.yHeadRotO = yaw;
+        }
+        float scale = echo.isCreeperDeath() ? 0.75F + 0.30F * Mth.clamp(cueTime / 38.0F, 0.0F, 1.0F) : 1.0F;
+        pose.pushPose();
+        pose.translate(x - echo.getX(), y - echo.getY(), z - echo.getZ());
+        pose.scale(scale, scale, scale);
+        Minecraft.getInstance().getEntityRenderDispatcher().render(visual, 0.0D, 0.0D, 0.0D,
+                yaw, partialTick, pose, buffers, packedLight);
+        pose.popPose();
     }
 
     @Override

@@ -1,6 +1,8 @@
 package ru.amir.traces;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.ChatFormatting;
@@ -39,6 +41,7 @@ public final class ApparitionEntity extends Entity {
     private static final double WALK_DECELERATION = 0.0035D;
     private static final double ARRIVAL_DISTANCE = 0.55D;
     private static final double REPLAY_TIME_SCALE = 0.85D;
+    private static final int DEATH_CUE_TICKS = 40;
 
     private static final EntityDataAccessor<BlockPos> DESTINATION =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BLOCK_POS);
@@ -64,6 +67,18 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> GREEN_ECHO =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<String> KILLER_TYPE =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Float> KILLER_X =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> KILLER_Y =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> KILLER_Z =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> KILLER_YAW =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> DEATH_CUE_TICK =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
 
     private double currentWalkSpeed;
     private float previousWalkBlend;
@@ -71,6 +86,7 @@ public final class ApparitionEntity extends Entity {
     private List<ReplayFrame> replayFrames = List.of();
     private double replayElapsedTime;
     private boolean replayMessageSent;
+    private boolean killerMessageSent;
 
     public ApparitionEntity(EntityType<? extends ApparitionEntity> type, Level level) {
         super(type, level);
@@ -91,6 +107,12 @@ public final class ApparitionEntity extends Entity {
         entityData.define(REPLAY_LIMB_PHASE, 0.0F);
         entityData.define(REPLAY_SPRINTING, false);
         entityData.define(GREEN_ECHO, false);
+        entityData.define(KILLER_TYPE, "");
+        entityData.define(KILLER_X, 0.0F);
+        entityData.define(KILLER_Y, 0.0F);
+        entityData.define(KILLER_Z, 0.0F);
+        entityData.define(KILLER_YAW, 0.0F);
+        entityData.define(DEATH_CUE_TICK, -1);
     }
 
     public void setDestination(BlockPos destination) {
@@ -122,6 +144,17 @@ public final class ApparitionEntity extends Entity {
         return entityData.get(REPLAY_SPRINTING);
     }
 
+    public String getKillerType() { return entityData.get(KILLER_TYPE); }
+    public float getKillerX() { return entityData.get(KILLER_X); }
+    public float getKillerY() { return entityData.get(KILLER_Y); }
+    public float getKillerZ() { return entityData.get(KILLER_Z); }
+    public float getKillerYaw() { return entityData.get(KILLER_YAW); }
+    public float getDeathCueTime(float partialTick) {
+        int start = entityData.get(DEATH_CUE_TICK);
+        return start < 0 ? -1.0F : tickCount + partialTick - start;
+    }
+    public boolean isCreeperDeath() { return "minecraft:creeper".equals(getKillerType()); }
+
     public boolean isGreenEcho() {
         return entityData.get(GREEN_ECHO);
     }
@@ -143,6 +176,12 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_LIMB_PHASE, 0.0F);
         entityData.set(REPLAY_SPRINTING, first.sprinting());
         entityData.set(GREEN_ECHO, false);
+        entityData.set(KILLER_TYPE, memory.getString("attacker_type"));
+        entityData.set(KILLER_X, (float) memory.getDouble("attacker_x"));
+        entityData.set(KILLER_Y, (float) memory.getDouble("attacker_y"));
+        entityData.set(KILLER_Z, (float) memory.getDouble("attacker_z"));
+        entityData.set(KILLER_YAW, memory.getFloat("attacker_yaw"));
+        entityData.set(DEATH_CUE_TICK, -1);
         entityData.set(DEATH_REPLAY, true);
         replayElapsedTime = 0.0D;
         return true;
@@ -222,7 +261,7 @@ public final class ApparitionEntity extends Entity {
         if (targetTime >= last.time()) {
             applyReplayFrame(last);
             updateWalkBlend(0.0F);
-            beginFlare();
+            beginDeathCue();
             return;
         }
 
@@ -283,6 +322,27 @@ public final class ApparitionEntity extends Entity {
         };
     }
 
+    private void beginDeathCue() {
+        String typeId = entityData.get(KILLER_TYPE);
+        if (typeId.isEmpty()) { beginFlare(); return; }
+        entityData.set(DEATH_CUE_TICK, tickCount);
+        if (level() instanceof ServerLevel serverLevel && !killerMessageSent) {
+            killerMessageSent = true;
+            ResourceLocation id = ResourceLocation.tryParse(typeId);
+            EntityType<?> killer = id == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
+            Component name = killer == null ? Component.literal(typeId) : Component.translatable(killer.getDescriptionId());
+            Component message = Component.translatable(isCreeperDeath()
+                    ? "message.traces.death_echo_creeper" : "message.traces.death_echo_killer", name);
+            for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class, getBoundingBox().inflate(32.0D))) {
+                player.displayClientMessage(message.withStyle(ChatFormatting.RED), true);
+            }
+            if (isCreeperDeath()) {
+                serverLevel.playSound(null, blockPosition(), SoundEvents.CREEPER_PRIMED,
+                        SoundSource.AMBIENT, 0.7F, 0.8F);
+            }
+        }
+    }
+
     private void applyReplayFrame(ReplayFrame frame) {
         setPos(frame.x(), frame.y(), frame.z());
         setYRot(frame.yaw());
@@ -295,6 +355,11 @@ public final class ApparitionEntity extends Entity {
     private void tickServer() {
         int vanishTick = entityData.get(VANISH_TICK);
         if (isDeathReplay() && entityData.get(FLARE_TICK) < 0) {
+            int cueTick = entityData.get(DEATH_CUE_TICK);
+            if (cueTick >= 0) {
+                if (tickCount - cueTick >= DEATH_CUE_TICKS) beginFlare();
+                return;
+            }
             tickDeathReplay();
             return;
         }
@@ -365,6 +430,13 @@ public final class ApparitionEntity extends Entity {
         if (level() instanceof ServerLevel serverLevel) {
             Vec3 at = position().add(0.0D, 0.9D, 0.0D);
             if (isDeathReplay()) {
+                if (isCreeperDeath()) {
+                    serverLevel.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y, at.z, 1, 0.0D, 0.0D, 0.0D, 0.0D);
+                    serverLevel.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 34, 0.7D, 0.8D, 0.7D, 0.08D);
+                    serverLevel.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 24, 0.55D, 0.65D, 0.55D, 0.04D);
+                    serverLevel.playSound(null, blockPosition(), SoundEvents.GENERIC_EXPLODE,
+                            SoundSource.AMBIENT, 0.8F, 0.85F);
+                }
                 DustParticleOptions redDust = new DustParticleOptions(new Vector3f(0.95F, 0.06F, 0.035F), 1.35F);
                 serverLevel.sendParticles(redDust, at.x, at.y, at.z, 28, 0.38D, 0.8D, 0.38D, 0.025D);
                 serverLevel.sendParticles(ParticleTypes.DAMAGE_INDICATOR,

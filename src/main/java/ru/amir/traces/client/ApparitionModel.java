@@ -100,7 +100,9 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         head.zRot = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.04F) * 0.02F;
         body.zRot = sway;
         boolean crouching = deathReplay && apparition.isReplayCrouching();
-        body.xRot = crouching ? 0.22F : (sprinting ? -0.10F : -0.035F * walking);
+        float deathFlinch = deathReplay && apparition.getGlowIntensity(0.0F) > 0.25F
+                ? apparition.getGlowIntensity(0.0F) * 0.16F : 0.0F;
+        body.xRot = (crouching ? 0.22F : (sprinting ? -0.10F : -0.035F * walking)) - deathFlinch;
         body.y = crouching ? 1.5F : 0.0F;
         head.y = crouching ? -1.0F : 0.0F;
         float armSwing = sprinting ? 0.28F : 0.24F;
