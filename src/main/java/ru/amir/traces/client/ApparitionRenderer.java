@@ -18,6 +18,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.monster.Skeleton;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.Items;
 import net.minecraft.core.registries.BuiltInRegistries;
 import java.util.HashMap;
@@ -63,6 +64,12 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
                 : packedLight;
         model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(getTextureLocation(entity))), glowLight,
                 OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, entity.getFadeAlpha(partialTick));
+        if (entity.isDeathReplay()) {
+            renderHeldItem(entity, entity.getReplayMainHand(), 0.34F, ItemDisplayContext.THIRD_PERSON_RIGHT_HAND,
+                    pose, buffers, glowLight);
+            renderHeldItem(entity, entity.getReplayOffHand(), -0.34F, ItemDisplayContext.THIRD_PERSON_LEFT_HAND,
+                    pose, buffers, glowLight);
+        }
         pose.popPose();
         renderKiller(entity, partialTick, pose, buffers, packedLight);
         super.render(entity, yaw, partialTick, pose, buffers, packedLight);
@@ -105,6 +112,11 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         visual.yRotO = yaw;
         visual.tickCount = echo.tickCount;
         if (visual instanceof LivingEntity living) {
+            living.setItemSlot(EquipmentSlot.MAINHAND, stackFor(echo.getKillerMainHand()));
+            living.setItemSlot(EquipmentSlot.OFFHAND, stackFor(echo.getKillerOffHand()));
+            if (visual instanceof Skeleton skeleton && living.getMainHandItem().is(Items.BOW)) {
+                skeleton.startUsingItem(InteractionHand.MAIN_HAND);
+            }
             living.setYHeadRot(yaw);
             living.yHeadRotO = yaw;
             living.yBodyRot = yaw;
@@ -130,6 +142,27 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         pose.scale(scale, scale, scale);
         Minecraft.getInstance().getEntityRenderDispatcher().render(visual, 0.0D, 0.0D, 0.0D,
                 yaw, partialTick, pose, buffers, packedLight);
+        pose.popPose();
+    }
+
+    private static ItemStack stackFor(String id) {
+        if (id == null || id.isEmpty()) return ItemStack.EMPTY;
+        ResourceLocation location = ResourceLocation.tryParse(id);
+        if (location == null) return ItemStack.EMPTY;
+        return new ItemStack(BuiltInRegistries.ITEM.getOptional(location).orElse(Items.AIR));
+    }
+
+    private static void renderHeldItem(ApparitionEntity entity, String itemId, float side,
+                                       ItemDisplayContext context, PoseStack pose,
+                                       MultiBufferSource buffers, int packedLight) {
+        ItemStack stack = stackFor(itemId);
+        if (stack.isEmpty()) return;
+        pose.pushPose();
+        pose.translate(side, 0.82D, 0.02D);
+        pose.mulPose(Axis.XP.rotationDegrees(-88.0F));
+        pose.scale(0.48F, 0.48F, 0.48F);
+        Minecraft.getInstance().getItemRenderer().renderStatic(stack, context, packedLight,
+                OverlayTexture.NO_OVERLAY, pose, buffers, entity.level(), entity.getId());
         pose.popPose();
     }
 

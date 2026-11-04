@@ -91,6 +91,15 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> KILLER_ATTACK_ANIM =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<String> REPLAY_MAIN_HAND =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> REPLAY_OFF_HAND =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> KILLER_MAIN_HAND =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> KILLER_OFF_HAND =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
+    private float killerStartDistance = 6.0F;
 
     private double currentWalkSpeed;
     private float previousWalkBlend;
@@ -138,6 +147,10 @@ public final class ApparitionEntity extends Entity {
         entityData.define(KILLER_SWINGING, false);
         entityData.define(KILLER_SWING_TIME, 0);
         entityData.define(KILLER_ATTACK_ANIM, 0.0F);
+        entityData.define(REPLAY_MAIN_HAND, "");
+        entityData.define(REPLAY_OFF_HAND, "");
+        entityData.define(KILLER_MAIN_HAND, "");
+        entityData.define(KILLER_OFF_HAND, "");
     }
 
     public void setDestination(BlockPos destination) {
@@ -188,6 +201,10 @@ public final class ApparitionEntity extends Entity {
     public boolean isKillerSwinging() { return entityData.get(KILLER_SWINGING); }
     public int getKillerSwingTime() { return entityData.get(KILLER_SWING_TIME); }
     public float getKillerAttackAnim() { return entityData.get(KILLER_ATTACK_ANIM); }
+    public String getReplayMainHand() { return entityData.get(REPLAY_MAIN_HAND); }
+    public String getReplayOffHand() { return entityData.get(REPLAY_OFF_HAND); }
+    public String getKillerMainHand() { return entityData.get(KILLER_MAIN_HAND); }
+    public String getKillerOffHand() { return entityData.get(KILLER_OFF_HAND); }
     public float getReplayFallBlend(float partialTick) {
         return Mth.lerp(partialTick, previousReplayFallBlend, replayFallBlend);
     }
@@ -212,6 +229,8 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_CROUCHING, first.crouching());
         entityData.set(REPLAY_LIMB_PHASE, 0.0F);
         entityData.set(REPLAY_SPRINTING, first.sprinting());
+        entityData.set(REPLAY_MAIN_HAND, first.mainHand());
+        entityData.set(REPLAY_OFF_HAND, first.offHand());
         entityData.set(GREEN_ECHO, false);
         entityData.set(KILLER_TYPE, memory.getString("attacker_type"));
         entityData.set(KILLER_X, (float) memory.getDouble("attacker_x"));
@@ -224,6 +243,7 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_FALLING, false);
         entityData.set(DEATH_CUE_TICK, -1);
         entityData.set(DEATH_REPLAY, true);
+        killerStartDistance = 3.0F + level().random.nextFloat() * 9.0F;
         replayElapsedTime = 0.0D;
         return true;
     }
@@ -236,7 +256,8 @@ public final class ApparitionEntity extends Entity {
                     frame.getDouble("y"), frame.getDouble("z"), frame.getFloat("yaw"),
                     frame.getFloat("pitch"), frame.getBoolean("aggressive"),
                     frame.getBoolean("swinging"), frame.getInt("swing_time"),
-                    frame.getFloat("attack_anim")));
+                    frame.getFloat("attack_anim"), frame.getString("main_hand"),
+                    frame.getString("off_hand")));
         }
         killerFrames = loaded;
     }
@@ -248,7 +269,8 @@ public final class ApparitionEntity extends Entity {
             loaded.add(new ReplayFrame(frame.getLong("time"), frame.getDouble("x"),
                     frame.getDouble("y"), frame.getDouble("z"), frame.getFloat("yaw"),
                     frame.getFloat("pitch"), frame.getFloat("head_yaw"), frame.getBoolean("crouching"),
-                    frame.getBoolean("sprinting"), frame.getBoolean("on_ground")));
+                    frame.getBoolean("sprinting"), frame.getBoolean("on_ground"),
+                    frame.getString("main_hand"), frame.getString("off_hand")));
         }
         replayFrames = loaded;
     }
@@ -349,6 +371,8 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_CROUCHING, amount < 0.5F ? from.crouching() : to.crouching());
         entityData.set(REPLAY_SPRINTING, amount < 0.5F ? from.sprinting() : to.sprinting());
         entityData.set(REPLAY_FALLING, !to.onGround() && y < from.y());
+        entityData.set(REPLAY_MAIN_HAND, amount < 0.5F ? from.mainHand() : to.mainHand());
+        entityData.set(REPLAY_OFF_HAND, amount < 0.5F ? from.offHand() : to.offHand());
 
         float horizontalMovement = (float) Math.hypot(x - oldX, z - oldZ);
         entityData.set(REPLAY_LIMB_PHASE,
@@ -375,7 +399,28 @@ public final class ApparitionEntity extends Entity {
         KillerFrame attack = amount < 0.5F ? from : to;
         entityData.set(KILLER_SWINGING, attack.swinging());
         entityData.set(KILLER_SWING_TIME, attack.swingTime());
-        entityData.set(KILLER_ATTACK_ANIM, attack.attackAnim());
+        entityData.set(KILLER_MAIN_HAND, attack.mainHand());
+        entityData.set(KILLER_OFF_HAND, attack.offHand());
+        boolean ranged = getKillerType().equals("minecraft:skeleton")
+                || attack.mainHand().equals("minecraft:bow") || attack.mainHand().equals("minecraft:crossbow")
+                || attack.mainHand().equals("minecraft:trident");
+        float cue = (float) (targetTime - replayFrames.get(0).time());
+        float playbackLength = replayFrames.get(replayFrames.size() - 1).time() - replayFrames.get(0).time();
+        float approach = smoothStep(cue / Math.max(1.0F, playbackLength * 0.8F));
+        float wantedDistance = ranged ? killerStartDistance : Mth.lerp(approach, killerStartDistance, 1.05F);
+        double dx = Mth.lerp(amount, from.x(), to.x()) - getX();
+        double dz = Mth.lerp(amount, from.z(), to.z()) - getZ();
+        double length = Math.sqrt(dx * dx + dz * dz);
+        if (length < 0.001D) { dx = -Math.sin(Math.toRadians(getYRot())); dz = Math.cos(Math.toRadians(getYRot())); length = 1.0D; }
+        entityData.set(KILLER_X, (float) (getX() + dx / length * wantedDistance));
+        entityData.set(KILLER_Z, (float) (getZ() + dz / length * wantedDistance));
+        entityData.set(KILLER_Y, (float) Mth.lerp(amount, from.y(), to.y()));
+        float attackPulse = ranged
+                ? (float) Math.max(0.0D, Math.sin((cue + 4.0D) * Math.PI / 18.0D))
+                : 1.0F - smoothStep(Math.abs(cue - (playbackLength - 7.0F)) / 9.0F);
+        entityData.set(KILLER_SWINGING, attack.swinging() || attackPulse > 0.18F);
+        entityData.set(KILLER_SWING_TIME, attack.swingTime());
+        entityData.set(KILLER_ATTACK_ANIM, Math.max(attack.attackAnim(), attackPulse));
         entityData.set(KILLER_VISIBLE, true);
     }
 
@@ -396,10 +441,13 @@ public final class ApparitionEntity extends Entity {
 
         double t2 = amount * amount;
         double t3 = t2 * amount;
-        return (2.0D * t3 - 3.0D * t2 + 1.0D) * start
+        double spline = (2.0D * t3 - 3.0D * t2 + 1.0D) * start
                 + (t3 - 2.0D * t2 + amount) * startTangent
                 + (-2.0D * t3 + 3.0D * t2) * end
                 + (t3 - t2) * endTangent;
+        double linear = Mth.lerp(amount, start, end);
+        double bounded = Mth.clamp(spline, Math.min(start, end), Math.max(start, end));
+        return Mth.lerp(0.38D, linear, bounded);
     }
 
     private static double replayCoordinate(ReplayFrame frame, int axis) {
@@ -689,7 +737,9 @@ public final class ApparitionEntity extends Entity {
     }
 
     private record ReplayFrame(long time, double x, double y, double z, float yaw, float pitch,
-                               float headYaw, boolean crouching, boolean sprinting, boolean onGround) { }
+                               float headYaw, boolean crouching, boolean sprinting, boolean onGround,
+                               String mainHand, String offHand) { }
     private record KillerFrame(long time, double x, double y, double z, float yaw, float pitch,
-                               boolean aggressive, boolean swinging, int swingTime, float attackAnim) { }
+                               boolean aggressive, boolean swinging, int swingTime, float attackAnim,
+                               String mainHand, String offHand) { }
 }

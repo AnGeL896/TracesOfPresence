@@ -191,6 +191,8 @@ public final class EchoRecorder {
         frame.putBoolean("on_ground", player.onGround());
         frame.putBoolean("sprinting", player.isSprinting());
         frame.putBoolean("crouching", player.isCrouching());
+        putHeldItem(frame, "main_hand", player.getMainHandItem());
+        putHeldItem(frame, "off_hand", player.getOffhandItem());
         return frame;
     }
 
@@ -213,6 +215,8 @@ public final class EchoRecorder {
             frame.putBoolean("swinging", entity.swinging);
             frame.putInt("swing_time", entity.swingTime);
             frame.putFloat("attack_anim", entity.attackAnim);
+            putHeldItem(frame, "main_hand", entity.getMainHandItem());
+            putHeldItem(frame, "off_hand", entity.getOffhandItem());
             track.frames.addLast(frame);
             while (track.frames.size() > RECORDING_TICKS) track.frames.removeFirst();
         }
@@ -249,6 +253,10 @@ public final class EchoRecorder {
         action.putInt("z", pos.getZ());
         action.putString("id", BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
         addAction(player, action);
+    }
+
+    private static void putHeldItem(CompoundTag frame, String hand, ItemStack stack) {
+        frame.putString(hand, stack.isEmpty() ? "" : BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
     }
 
     private static CompoundTag baseAction(long gameTime, String actionType) {

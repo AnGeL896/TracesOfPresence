@@ -93,6 +93,9 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         float crouchBlend = deathReplay ? apparition.getReplayCrouchBlend(limbSwing) : 0.0F;
         float sprintBlend = deathReplay ? apparition.getReplaySprintBlend(limbSwing) : 0.0F;
         float fallBlend = deathReplay ? apparition.getReplayFallBlend(limbSwing) : 0.0F;
+        float deathCue = deathReplay ? apparition.getDeathCueTime(limbSwing) : -1.0F;
+        float collapse = deathCue < 0.0F ? 0.0F : Mth.clamp(deathCue / 18.0F, 0.0F, 1.0F);
+        collapse = collapse * collapse * (3.0F - 2.0F * collapse);
         float sway = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.055F) * 0.04F;
         float gaitPhase = deathReplay
                 ? apparition.getReplayLimbPhase(limbSwing) * 0.6662F
@@ -113,8 +116,14 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         rightArm.xRot = -0.08F + step * armSwing * (1.0F - fallBlend) + secondaryArmDrift - 0.30F * fallBlend;
         leftArm.zRot = 0.08F + sway - 0.30F * fallBlend;
         rightArm.zRot = -0.08F + sway + 0.30F * fallBlend;
-        leftLeg.xRot = step * 0.34F * (1.0F - fallBlend);
-        rightLeg.xRot = -leftLeg.xRot;
+        leftLeg.xRot = step * 0.34F * (1.0F - fallBlend) - 0.42F * collapse;
+        rightLeg.xRot = -leftLeg.xRot - 0.12F * collapse;
+        body.xRot += 0.92F * collapse;
+        body.zRot += Mth.sin(deathCue * 0.42F) * 0.14F * (1.0F - collapse);
+        leftArm.xRot += 0.62F * collapse;
+        rightArm.xRot += 0.48F * collapse;
+        leftArm.zRot -= 0.22F * collapse;
+        rightArm.zRot += 0.22F * collapse;
     }
 
     @Override
