@@ -1,6 +1,6 @@
 # Traces of Presence
 
-Minecraft Forge 1.20.1, version 0.5.23.
+Minecraft Forge 1.20.1, version 0.5.23-alpha.1 (alpha build).
 
 ## Echoes
 
