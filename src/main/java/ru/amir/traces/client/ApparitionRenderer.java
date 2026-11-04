@@ -1,6 +1,7 @@
 package ru.amir.traces.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -22,19 +23,24 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         shadowRadius = 0.0F;
     }
 
-    @Override public void render(ApparitionEntity entity, float yaw, float partialTick, PoseStack pose,
-                                 MultiBufferSource buffers, int packedLight) {
+    @Override
+    public void render(ApparitionEntity entity, float yaw, float partialTick, PoseStack pose,
+                       MultiBufferSource buffers, int packedLight) {
         pose.pushPose();
         float age = entity.tickCount + partialTick;
-        float bob = Mth.sin(age * 0.11F) * 0.045F;
-        pose.translate(entity.getDriftOffset(partialTick), 1.5D + bob, 0.0D);
+        float bob = Mth.sin(age * 0.11F) * 0.035F;
+        pose.translate(0.0D, 1.5D + bob, 0.0D);
+        pose.mulPose(Axis.YP.rotationDegrees(180.0F - entity.getYRot()));
         pose.scale(-1.0F, -1.0F, 1.0F);
-        model.setupAnim(entity, 0.0F, 0.0F, entity.tickCount + partialTick, 0.0F, 0.0F);
+        model.setupAnim(entity, 0.0F, 0.0F, age, 0.0F, 0.0F);
         model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(TEXTURE)), packedLight,
                 OverlayTexture.NO_OVERLAY, 1.0F, 1.0F, 1.0F, entity.getFadeAlpha(partialTick));
         pose.popPose();
         super.render(entity, yaw, partialTick, pose, buffers, packedLight);
     }
 
-    @Override public ResourceLocation getTextureLocation(ApparitionEntity entity) { return TEXTURE; }
+    @Override
+    public ResourceLocation getTextureLocation(ApparitionEntity entity) {
+        return TEXTURE;
+    }
 }

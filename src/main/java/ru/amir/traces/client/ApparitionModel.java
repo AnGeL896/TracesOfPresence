@@ -10,10 +10,11 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import ru.amir.traces.ApparitionEntity;
 import ru.amir.traces.TracesOfPresence;
 
 public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
@@ -56,27 +57,29 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
         return LayerDefinition.create(mesh, 64, 32);
     }
 
-    @Override public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks,
-                                    float netHeadYaw, float headPitch) {
+    @Override
+    public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks,
+                          float netHeadYaw, float headPitch) {
         float look = Mth.sin(ageInTicks * 0.12F) * 0.48F;
         head.yRot = netHeadYaw * ((float) Math.PI / 180.0F) + look;
         head.xRot = headPitch * ((float) Math.PI / 180.0F) + Mth.sin(ageInTicks * 0.08F) * 0.10F;
-        float dissolve = Mth.clamp((ageInTicks - 100.0F) / 60.0F, 0.0F, 1.0F);
-        float sway = Mth.sin(ageInTicks * 0.09F) * (0.055F + dissolve * 0.035F);
-        float glide = Mth.sin(Mth.clamp((ageInTicks - 60.0F) / 40.0F, 0.0F, 1.0F) * (float) Math.PI);
-        float step = Mth.sin(ageInTicks * 0.28F) * glide;
+        float walking = entity instanceof ApparitionEntity apparition && apparition.isWalking() ? 1.0F : 0.0F;
+        float sway = Mth.sin(ageInTicks * 0.09F) * 0.07F;
+        float step = Mth.sin(ageInTicks * 0.62F) * walking;
         head.zRot = Mth.sin(ageInTicks * 0.07F) * 0.035F;
         body.zRot = sway;
-        leftArm.xRot = -0.16F - step * 0.38F + Mth.sin(ageInTicks * 0.18F) * 0.10F;
-        rightArm.xRot = -0.10F + step * 0.38F + Mth.sin(ageInTicks * 0.18F + 1.2F) * 0.10F;
+        body.xRot = -0.08F * walking;
+        leftArm.xRot = -0.18F - step * 0.42F + Mth.sin(ageInTicks * 0.18F) * 0.10F;
+        rightArm.xRot = -0.12F + step * 0.42F + Mth.sin(ageInTicks * 0.18F + 1.2F) * 0.10F;
         leftArm.zRot = 0.10F + sway;
         rightArm.zRot = -0.10F + sway;
-        leftLeg.xRot = step * 0.42F;
+        leftLeg.xRot = step * 0.52F;
         rightLeg.xRot = -leftLeg.xRot;
     }
 
-    @Override public void renderToBuffer(PoseStack pose, VertexConsumer consumer, int packedLight, int packedOverlay,
-                                         float red, float green, float blue, float alpha) {
+    @Override
+    public void renderToBuffer(PoseStack pose, VertexConsumer consumer, int packedLight, int packedOverlay,
+                               float red, float green, float blue, float alpha) {
         root.render(pose, consumer, packedLight, OverlayTexture.NO_OVERLAY, 0.72F, 0.88F, 1.0F, alpha);
     }
 }

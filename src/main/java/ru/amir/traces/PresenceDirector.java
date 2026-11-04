@@ -4,10 +4,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BiomeTags;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
@@ -53,33 +55,99 @@ public final class PresenceDirector {
             return false;
         }
 
-        for (int attempt = 0; attempt < 8; attempt++) {
-            float yaw = player.getYRot() + (level.random.nextFloat() * 110.0F - 55.0F);
-            double distance = 12.0D + level.random.nextDouble() * 12.0D;
-            double radians = Math.toRadians(yaw);
-            double x = player.getX() - Math.sin(radians) * distance;
-            double z = player.getZ() + Math.cos(radians) * distance;
-            BlockPos sample = BlockPos.containing(x, player.getY(), z);
-            BlockPos feet = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sample);
-
-            if (!level.getFluidState(feet).isEmpty() || !level.getFluidState(feet.above()).isEmpty()) continue;
-            if (!level.getBlockState(feet.below()).blocksMotion()) continue;
-            if (level.getMaxLocalRawBrightness(feet) > 7) continue;
+        for (int attempt = 0; attempt < 10; attempt++) {
+            float yaw = player.getYRot() + (level.random.nextFloat() * 70.0F - 35.0F);
+            EscapeSpot spot = findEscapeSpot(level, player, yaw);
+            if (spot == null) continue;
 
             ApparitionEntity apparition = ModEntities.APPARITION.get().create(level);
             if (apparition == null) return false;
-            apparition.moveTo(x, feet.getY(), z, yaw, 0.0F);
+            apparition.moveTo(spot.startX(), spot.startY(), spot.startZ(), yaw, 0.0F);
+            apparition.setDestination(spot.destination());
             if (!level.noCollision(apparition)) continue;
-
-            Vec3 target = apparition.position().add(0.0D, 1.0D, 0.0D);
-            HitResult sight = level.clip(new ClipContext(player.getEyePosition(), target,
-                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
-            if (sight.getType() != HitResult.Type.MISS) continue;
 
             return level.addFreshEntity(apparition);
         }
         return false;
     }
+
+    private static EscapeSpot findEscapeSpot(ServerLevel level, ServerPlayer player, float yaw) {
+        double radians = Math.toRadians(yaw);
+        double forwardX = -Math.sin(radians);
+        double forwardZ = Math.cos(radians);
+        double searchDistance = 16.0D + level.random.nextDouble() * 7.0D;
+        int centerX = (int) Math.floor(player.getX() + forwardX * searchDistance);
+        int centerZ = (int) Math.floor(player.getZ() + forwardZ * searchDistance);
+
+        for (int radius = 0; radius <= 5; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) continue;
+                    int x = centerX + dx;
+                    int z = centerZ + dz;
+                    BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                            new BlockPos(x, player.getBlockY(), z));
+
+                    for (int y = surface.getY() - 1; y <= surface.getY() + 5; y++) {
+                        BlockPos trunk = new BlockPos(x, y, z);
+                        if (!level.getBlockState(trunk).is(BlockTags.LOGS)) continue;
+
+                        EscapeSpot spot = makeEscapeSpot(level, player, trunk);
+                        if (spot != null) return spot;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static EscapeSpot makeEscapeSpot(ServerLevel level, ServerPlayer player, BlockPos trunk) {
+        double treeX = trunk.getX() + 0.5D;
+        double treeZ = trunk.getZ() + 0.5D;
+        double towardX = treeX - player.getX();
+        double towardZ = treeZ - player.getZ();
+        double distance = Math.sqrt(towardX * towardX + towardZ * towardZ);
+        if (distance < 8.0D) return null;
+        towardX /= distance;
+        towardZ /= distance;
+
+        double startX = treeX - towardX * 3.25D;
+        double startZ = treeZ - towardZ * 3.25D;
+        double targetX = treeX + towardX * 3.75D;
+        double targetZ = treeZ + towardZ * 3.75D;
+
+        BlockPos startGround = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                BlockPos.containing(startX, player.getY(), startZ));
+        BlockPos targetGround = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                BlockPos.containing(targetX, trunk.getY(), targetZ));
+        if (Math.abs(startGround.getY() - targetGround.getY()) > 1) return null;
+        if (!isSafeGround(level, startGround) || !isSafeGround(level, targetGround)) return null;
+
+        Vec3 start = new Vec3(startX, startGround.getY(), startZ);
+        Vec3 target = new Vec3(targetX, targetGround.getY() + 1.0D, targetZ);
+        HitResult startSight = level.clip(new ClipContext(player.getEyePosition(), start.add(0.0D, 1.0D, 0.0D),
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        if (startSight.getType() != HitResult.Type.MISS) return null;
+
+        HitResult targetSight = level.clip(new ClipContext(player.getEyePosition(), target,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        if (targetSight.getType() != HitResult.Type.BLOCK) return null;
+        BlockPos cover = ((BlockHitResult) targetSight).getBlockPos();
+        if (!level.getBlockState(cover).is(BlockTags.LOGS)
+                && !level.getBlockState(cover).is(BlockTags.LEAVES)) return null;
+
+        return new EscapeSpot(startX, startGround.getY(), startZ,
+                BlockPos.containing(targetX, targetGround.getY(), targetZ));
+    }
+
+    private static boolean isSafeGround(ServerLevel level, BlockPos feet) {
+        return level.getFluidState(feet).isEmpty()
+                && level.getFluidState(feet.above()).isEmpty()
+                && level.getBlockState(feet.below()).blocksMotion()
+                && level.getMaxLocalRawBrightness(feet) <= 7;
+    }
+
+    private record EscapeSpot(double startX, double startY, double startZ, BlockPos destination) { }
 
     private PresenceDirector() { }
 }
