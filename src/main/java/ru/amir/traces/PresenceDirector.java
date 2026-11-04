@@ -22,14 +22,14 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = TracesOfPresence.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class PresenceDirector {
     private static final int CHECK_INTERVAL_TICKS = 100;
-    private static final int SPAWN_COOLDOWN_TICKS = 400; // Temporary test cooldown: 20 seconds.
-    private static final float SPAWN_CHANCE_PER_CHECK = 0.50F; // Temporary test chance: 50% every 5 seconds.
     private static final String COOLDOWN_KEY = "traces_apparition_next_spawn";
 
     @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
         if (event.phase != TickEvent.Phase.END || !(event.level instanceof ServerLevel level)) return;
-        if (level.dimension() != Level.OVERWORLD || level.getGameTime() % CHECK_INTERVAL_TICKS != 0) return;
+        if (!TracesConfig.BLUE_ECHO_ENABLED.get()
+                || level.dimension() != Level.OVERWORLD
+                || level.getGameTime() % CHECK_INTERVAL_TICKS != 0) return;
 
         for (ServerPlayer player : level.players()) {
             if (player.isSpectator() || player.isSleeping()) continue;
@@ -37,9 +37,9 @@ public final class PresenceDirector {
             if (!isNight(level) || !isSuitableBiome(level, player.blockPosition())) continue;
             BlockPos crystal = findNearbyLifeEcho(level, player.blockPosition());
             if (crystal == null) continue;
-            if (level.random.nextFloat() >= SPAWN_CHANCE_PER_CHECK) continue;
+            if (level.random.nextDouble() >= TracesConfig.BLUE_CHANCE_PER_CHECK.get()) continue;
             if (trySpawn(level, player, crystal)) {
-                player.getPersistentData().putLong(COOLDOWN_KEY, level.getGameTime() + SPAWN_COOLDOWN_TICKS);
+                player.getPersistentData().putLong(COOLDOWN_KEY, level.getGameTime() + TracesConfig.BLUE_COOLDOWN_TICKS.get());
             }
         }
     }
