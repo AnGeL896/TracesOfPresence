@@ -112,6 +112,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         visual.yRotO = yaw;
         visual.tickCount = echo.tickCount;
         if (visual instanceof LivingEntity living) {
+            if (visual instanceof Mob mob) mob.setBaby(echo.isKillerBaby());
             living.setItemSlot(EquipmentSlot.MAINHAND, stackFor(echo.getKillerMainHand()));
             living.setItemSlot(EquipmentSlot.OFFHAND, stackFor(echo.getKillerOffHand()));
             living.setItemSlot(EquipmentSlot.HEAD, stackFor(echo.getKillerHead()));

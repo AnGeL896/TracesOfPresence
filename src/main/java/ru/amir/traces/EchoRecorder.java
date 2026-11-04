@@ -216,6 +216,7 @@ public final class EchoRecorder {
             frame.putBoolean("swinging", entity.swinging);
             frame.putInt("swing_time", entity.swingTime);
             frame.putFloat("attack_anim", entity.attackAnim);
+            frame.putBoolean("baby", entity instanceof Mob mob && mob.isBaby());
             putHeldItem(frame, "main_hand", entity.getMainHandItem());
             putHeldItem(frame, "off_hand", entity.getOffhandItem());
             putHeldItem(frame, "armor_head", entity.getItemBySlot(EquipmentSlot.HEAD));

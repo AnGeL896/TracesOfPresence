@@ -107,6 +107,8 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<String> KILLER_FEET =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Boolean> KILLER_BABY =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
     private float killerStartDistance = 6.0F;
 
     private double currentWalkSpeed;
@@ -163,6 +165,7 @@ public final class ApparitionEntity extends Entity {
         entityData.define(KILLER_CHEST, "");
         entityData.define(KILLER_LEGS, "");
         entityData.define(KILLER_FEET, "");
+        entityData.define(KILLER_BABY, false);
     }
 
     public void setDestination(BlockPos destination) {
@@ -221,6 +224,7 @@ public final class ApparitionEntity extends Entity {
     public String getKillerChest() { return entityData.get(KILLER_CHEST); }
     public String getKillerLegs() { return entityData.get(KILLER_LEGS); }
     public String getKillerFeet() { return entityData.get(KILLER_FEET); }
+    public boolean isKillerBaby() { return entityData.get(KILLER_BABY); }
     public float getReplayFallBlend(float partialTick) {
         return Mth.lerp(partialTick, previousReplayFallBlend, replayFallBlend);
     }
@@ -275,7 +279,7 @@ public final class ApparitionEntity extends Entity {
                     frame.getFloat("attack_anim"), frame.getString("main_hand"),
                     frame.getString("off_hand"), frame.getString("armor_head"),
                     frame.getString("armor_chest"), frame.getString("armor_legs"),
-                    frame.getString("armor_feet")));
+                    frame.getString("armor_feet"), frame.getBoolean("baby")));
         }
         killerFrames = loaded;
     }
@@ -423,6 +427,7 @@ public final class ApparitionEntity extends Entity {
         entityData.set(KILLER_CHEST, attack.chest());
         entityData.set(KILLER_LEGS, attack.legs());
         entityData.set(KILLER_FEET, attack.feet());
+        entityData.set(KILLER_BABY, attack.baby());
         boolean ranged = getKillerType().equals("minecraft:skeleton")
                 || attack.mainHand().equals("minecraft:bow") || attack.mainHand().equals("minecraft:crossbow")
                 || attack.mainHand().equals("minecraft:trident");
@@ -776,5 +781,6 @@ public final class ApparitionEntity extends Entity {
                                String mainHand, String offHand) { }
     private record KillerFrame(long time, double x, double y, double z, float yaw, float pitch,
                                boolean aggressive, boolean swinging, int swingTime, float attackAnim,
-                               String mainHand, String offHand, String head, String chest, String legs, String feet) { }
+                               String mainHand, String offHand, String head, String chest, String legs, String feet,
+                               boolean baby) { }
 }
