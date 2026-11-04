@@ -16,6 +16,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -23,6 +27,7 @@ import net.minecraftforge.fml.common.Mod;
 public final class PresenceDirector {
     private static final int CHECK_INTERVAL_TICKS = 100;
     private static final String COOLDOWN_KEY = "traces_apparition_next_spawn";
+    private static final Map<UUID, CachedCrystal> CRYSTALS = new HashMap<>();
 
     @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
@@ -35,7 +40,7 @@ public final class PresenceDirector {
             if (player.isSpectator() || player.isSleeping()) continue;
             if (level.getGameTime() < player.getPersistentData().getLong(COOLDOWN_KEY)) continue;
             if (!isNight(level) || !isSuitableBiome(level, player.blockPosition())) continue;
-            BlockPos crystal = findNearbyLifeEcho(level, player.blockPosition());
+            BlockPos crystal = findNearbyLifeEcho(level, player);
             if (crystal == null) continue;
             if (level.random.nextDouble() >= TracesConfig.BLUE_CHANCE_PER_CHECK.get()) continue;
             if (trySpawn(level, player, crystal)) {
@@ -161,7 +166,17 @@ public final class PresenceDirector {
                 BlockPos.containing(targetX, targetGround.getY(), targetZ));
     }
 
-    private static BlockPos findNearbyLifeEcho(ServerLevel level, BlockPos center) {
+    private static BlockPos findNearbyLifeEcho(ServerLevel level, ServerPlayer player) {
+        BlockPos center = player.blockPosition();
+        UUID playerId = player.getUUID();
+        CachedCrystal cached = CRYSTALS.get(playerId);
+        if (cached != null && cached.dimension().equals(level.dimension().location().toString())
+                && isInsideSearchBox(center, cached.position())
+                && level.getBlockState(cached.position()).is(ModBlocks.LIFE_ECHO.get())) {
+            return cached.position();
+        }
+
+        CRYSTALS.remove(playerId);
         BlockPos nearest = null;
         double nearestDistance = Double.MAX_VALUE;
         for (int dx = -12; dx <= 12; dx++) {
@@ -177,8 +192,24 @@ public final class PresenceDirector {
                 }
             }
         }
+        if (nearest != null) {
+            CRYSTALS.put(playerId, new CachedCrystal(level.dimension().location().toString(), nearest));
+        }
         return nearest;
     }
+
+    private static boolean isInsideSearchBox(BlockPos center, BlockPos candidate) {
+        return Math.abs(center.getX() - candidate.getX()) <= 12
+                && Math.abs(center.getY() - candidate.getY()) <= 6
+                && Math.abs(center.getZ() - candidate.getZ()) <= 12;
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        CRYSTALS.remove(event.getEntity().getUUID());
+    }
+
+    private record CachedCrystal(String dimension, BlockPos position) { }
 
     private static boolean isSafeGround(ServerLevel level, BlockPos feet) {
         return level.getFluidState(feet).isEmpty()
