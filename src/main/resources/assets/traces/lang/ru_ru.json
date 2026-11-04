@@ -2,5 +2,8 @@
   "mod.traces.name": "Следы присутствия",
   "mod.traces.description": "Мир, который помнит важные моменты твоего путешествия.",
   "block.traces.life_echo": "Отголосок жизни",
-  "itemGroup.traces": "Следы присутствия"
+  "itemGroup.traces": "Следы присутствия",
+  "message.traces.echo_whisper_1": "Здесь кто-то был…",
+  "message.traces.echo_whisper_2": "Лес будто затаился.",
+  "message.traces.echo_whisper_3": "Ты это видел?"
 }

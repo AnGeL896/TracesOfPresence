@@ -2,5 +2,8 @@
   "mod.traces.name": "Traces of Presence",
   "mod.traces.description": "A world that remembers the meaningful moments of your journey.",
   "block.traces.life_echo": "Echo of Life",
-  "itemGroup.traces": "Traces of Presence"
+  "itemGroup.traces": "Traces of Presence",
+  "message.traces.echo_whisper_1": "Someone was here...",
+  "message.traces.echo_whisper_2": "The forest has gone quiet.",
+  "message.traces.echo_whisper_3": "Did you see that?"
 }

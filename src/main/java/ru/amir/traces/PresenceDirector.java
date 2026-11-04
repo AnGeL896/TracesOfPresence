@@ -1,8 +1,11 @@
 package ru.amir.traces;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.ClipContext;
@@ -19,8 +22,8 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = TracesOfPresence.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class PresenceDirector {
     private static final int CHECK_INTERVAL_TICKS = 100;
-    private static final int SPAWN_COOLDOWN_TICKS = 1_800;
-    private static final float SPAWN_CHANCE_PER_CHECK = 0.03F;
+    private static final int SPAWN_COOLDOWN_TICKS = 400; // Temporary test cooldown: 20 seconds.
+    private static final float SPAWN_CHANCE_PER_CHECK = 0.50F; // Temporary test chance: 50% every 5 seconds.
     private static final String COOLDOWN_KEY = "traces_apparition_next_spawn";
 
     @SubscribeEvent
@@ -29,7 +32,7 @@ public final class PresenceDirector {
         if (level.dimension() != Level.OVERWORLD || level.getGameTime() % CHECK_INTERVAL_TICKS != 0) return;
 
         for (ServerPlayer player : level.players()) {
-            if (player.isSpectator() || player.isCreative() || player.isSleeping()) continue;
+            if (player.isSpectator() || player.isSleeping()) continue;
             if (level.getGameTime() < player.getPersistentData().getLong(COOLDOWN_KEY)) continue;
             if (!isNight(level) || !isSuitableBiome(level, player.blockPosition())) continue;
             if (level.random.nextFloat() >= SPAWN_CHANCE_PER_CHECK) continue;
@@ -66,7 +69,29 @@ public final class PresenceDirector {
             apparition.setDestination(spot.destination());
             if (!level.noCollision(apparition)) continue;
 
-            return level.addFreshEntity(apparition);
+            if (!level.addFreshEntity(apparition)) return false;
+
+            String messageKey = switch (level.random.nextInt(3)) {
+                case 0 -> "message.traces.echo_whisper_1";
+                case 1 -> "message.traces.echo_whisper_2";
+                default -> "message.traces.echo_whisper_3";
+            };
+            player.displayClientMessage(Component.translatable(messageKey), true);
+
+            BlockPos crystal = findNearbyLifeEcho(level, player.blockPosition());
+            if (crystal != null) {
+                Vec3 pulse = Vec3.atCenterOf(crystal).add(0.0D, 0.35D, 0.0D);
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
+                        pulse.x, pulse.y, pulse.z, 8, 0.28D, 0.3D, 0.28D, 0.015D);
+                level.sendParticles(net.minecraft.core.particles.ParticleTypes.SOUL,
+                        pulse.x, pulse.y, pulse.z, 5, 0.22D, 0.25D, 0.22D, 0.008D);
+                level.playSound(null, crystal, SoundEvents.AMETHYST_BLOCK_CHIME,
+                        SoundSource.AMBIENT, 0.55F, 0.72F + level.random.nextFloat() * 0.2F);
+            } else {
+                level.playSound(null, apparition.blockPosition(), SoundEvents.AMETHYST_BLOCK_CHIME,
+                        SoundSource.AMBIENT, 0.35F, 0.72F + level.random.nextFloat() * 0.2F);
+            }
+            return true;
         }
         return false;
     }
@@ -139,6 +164,25 @@ public final class PresenceDirector {
 
         return new EscapeSpot(startX, startGround.getY(), startZ,
                 BlockPos.containing(targetX, targetGround.getY(), targetZ));
+    }
+
+    private static BlockPos findNearbyLifeEcho(ServerLevel level, BlockPos center) {
+        BlockPos nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (int dx = -12; dx <= 12; dx++) {
+            for (int dy = -6; dy <= 6; dy++) {
+                for (int dz = -12; dz <= 12; dz++) {
+                    BlockPos candidate = center.offset(dx, dy, dz);
+                    if (!level.getBlockState(candidate).is(ModBlocks.LIFE_ECHO.get())) continue;
+                    double distance = candidate.distSqr(center);
+                    if (distance < nearestDistance) {
+                        nearest = candidate.immutable();
+                        nearestDistance = distance;
+                    }
+                }
+            }
+        }
+        return nearest;
     }
 
     private static boolean isSafeGround(ServerLevel level, BlockPos feet) {
