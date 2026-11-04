@@ -331,10 +331,10 @@ public final class ApparitionEntity extends Entity {
             ResourceLocation id = ResourceLocation.tryParse(typeId);
             EntityType<?> killer = id == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
             Component name = killer == null ? Component.literal(typeId) : Component.translatable(killer.getDescriptionId());
-            Component message = Component.translatable(isCreeperDeath()
-                    ? "message.traces.death_echo_creeper" : "message.traces.death_echo_killer", name);
             for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class, getBoundingBox().inflate(32.0D))) {
-                player.displayClientMessage(message.withStyle(ChatFormatting.RED), true);
+                player.displayClientMessage(Component.translatable(isCreeperDeath()
+                        ? "message.traces.death_echo_creeper" : "message.traces.death_echo_killer", name)
+                        .withStyle(ChatFormatting.RED), true);
             }
             if (isCreeperDeath()) {
                 serverLevel.playSound(null, blockPosition(), SoundEvents.CREEPER_PRIMED,
