@@ -224,7 +224,7 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         return stack.copy();
     }
 
-    private static void renderHeldItem(ApparitionEntity entity, String itemId, float side,
+    private void renderHeldItem(ApparitionEntity entity, String itemId, float side,
                                        ItemDisplayContext context, PoseStack pose,
                                        MultiBufferSource buffers, int packedLight) {
         ItemStack stack = stackFor(itemId);
