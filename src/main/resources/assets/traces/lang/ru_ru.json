@@ -13,5 +13,15 @@
   "message.traces.death_echo_drown": "Призрак утонул...",
   "message.traces.death_echo_lava": "Лава поглотила призрака...",
   "message.traces.death_echo_fire": "Призрак сгорел...",
-  "message.traces.death_echo_cause": "Причина смерти: %s"
+  "message.traces.death_echo_cause": "Причина смерти: %s",
+  "message.traces.death_echo_killer_cause": "Убит: %s — %s",
+  "message.traces.death_cause_arrow": "выстрел из лука",
+  "message.traces.death_cause_melee": "удар моба",
+  "message.traces.death_cause_player": "атака игрока",
+  "message.traces.death_cause_explosion": "взрыв",
+  "message.traces.death_cause_fall": "падение",
+  "message.traces.death_cause_drown": "утопление",
+  "message.traces.death_cause_lava": "лава",
+  "message.traces.death_cause_fire": "огонь",
+  "message.traces.death_cause_magic": "магия или иссушение"
 }

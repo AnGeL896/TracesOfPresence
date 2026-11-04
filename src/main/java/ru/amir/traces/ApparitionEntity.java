@@ -85,6 +85,12 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<String> DEATH_CAUSE =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Boolean> KILLER_SWINGING =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> KILLER_SWING_TIME =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> KILLER_ATTACK_ANIM =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.FLOAT);
 
     private double currentWalkSpeed;
     private float previousWalkBlend;
@@ -129,6 +135,9 @@ public final class ApparitionEntity extends Entity {
         entityData.define(KILLER_VISIBLE, false);
         entityData.define(REPLAY_FALLING, false);
         entityData.define(DEATH_CAUSE, "");
+        entityData.define(KILLER_SWINGING, false);
+        entityData.define(KILLER_SWING_TIME, 0);
+        entityData.define(KILLER_ATTACK_ANIM, 0.0F);
     }
 
     public void setDestination(BlockPos destination) {
@@ -176,6 +185,9 @@ public final class ApparitionEntity extends Entity {
     public boolean isCreeperDeath() { return "minecraft:creeper".equals(getKillerType()); }
     public boolean isKillerVisible() { return entityData.get(KILLER_VISIBLE); }
     public String getDeathCause() { return entityData.get(DEATH_CAUSE); }
+    public boolean isKillerSwinging() { return entityData.get(KILLER_SWINGING); }
+    public int getKillerSwingTime() { return entityData.get(KILLER_SWING_TIME); }
+    public float getKillerAttackAnim() { return entityData.get(KILLER_ATTACK_ANIM); }
     public float getReplayFallBlend(float partialTick) {
         return Mth.lerp(partialTick, previousReplayFallBlend, replayFallBlend);
     }
@@ -222,7 +234,9 @@ public final class ApparitionEntity extends Entity {
             CompoundTag frame = frames.getCompound(i);
             loaded.add(new KillerFrame(frame.getLong("time"), frame.getDouble("x"),
                     frame.getDouble("y"), frame.getDouble("z"), frame.getFloat("yaw"),
-                    frame.getFloat("pitch")));
+                    frame.getFloat("pitch"), frame.getBoolean("aggressive"),
+                    frame.getBoolean("swinging"), frame.getInt("swing_time"),
+                    frame.getFloat("attack_anim")));
         }
         killerFrames = loaded;
     }
@@ -358,6 +372,10 @@ public final class ApparitionEntity extends Entity {
         entityData.set(KILLER_Y, (float) Mth.lerp(amount, from.y(), to.y()));
         entityData.set(KILLER_Z, (float) Mth.lerp(amount, from.z(), to.z()));
         entityData.set(KILLER_YAW, Mth.rotLerp(amount, from.yaw(), to.yaw()));
+        KillerFrame attack = amount < 0.5F ? from : to;
+        entityData.set(KILLER_SWINGING, attack.swinging());
+        entityData.set(KILLER_SWING_TIME, attack.swingTime());
+        entityData.set(KILLER_ATTACK_ANIM, attack.attackAnim());
         entityData.set(KILLER_VISIBLE, true);
     }
 
@@ -407,8 +425,9 @@ public final class ApparitionEntity extends Entity {
             EntityType<?> killer = id == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
             Component name = killer == null ? Component.literal(typeId) : Component.translatable(killer.getDescriptionId());
             for (ServerPlayer player : serverLevel.getEntitiesOfClass(ServerPlayer.class, getBoundingBox().inflate(32.0D))) {
-                player.displayClientMessage(Component.translatable(isCreeperDeath()
-                        ? "message.traces.death_echo_creeper" : "message.traces.death_echo_killer", name)
+                player.displayClientMessage((isCreeperDeath()
+                        ? Component.translatable("message.traces.death_echo_creeper", name)
+                        : Component.translatable("message.traces.death_echo_killer_cause", name, getDeathCauseText()))
                         .withStyle(ChatFormatting.RED), true);
             }
             if (isCreeperDeath()) {
@@ -416,6 +435,21 @@ public final class ApparitionEntity extends Entity {
                         SoundSource.AMBIENT, 0.7F, 0.8F);
             }
         }
+    }
+
+    private Component getDeathCauseText() {
+        return switch (getDeathCause()) {
+            case "arrow" -> Component.translatable("message.traces.death_cause_arrow");
+            case "mob" -> Component.translatable("message.traces.death_cause_melee");
+            case "player" -> Component.translatable("message.traces.death_cause_player");
+            case "explosion" -> Component.translatable("message.traces.death_cause_explosion");
+            case "fall" -> Component.translatable("message.traces.death_cause_fall");
+            case "drown" -> Component.translatable("message.traces.death_cause_drown");
+            case "lava", "hotFloor" -> Component.translatable("message.traces.death_cause_lava");
+            case "inFire", "onFire" -> Component.translatable("message.traces.death_cause_fire");
+            case "magic", "wither" -> Component.translatable("message.traces.death_cause_magic");
+            default -> Component.literal(getDeathCause().isEmpty() ? "unknown" : getDeathCause());
+        };
     }
 
     private void showEnvironmentalCause() {
@@ -656,5 +690,6 @@ public final class ApparitionEntity extends Entity {
 
     private record ReplayFrame(long time, double x, double y, double z, float yaw, float pitch,
                                float headYaw, boolean crouching, boolean sprinting, boolean onGround) { }
-    private record KillerFrame(long time, double x, double y, double z, float yaw, float pitch) { }
+    private record KillerFrame(long time, double x, double y, double z, float yaw, float pitch,
+                               boolean aggressive, boolean swinging, int swingTime, float attackAnim) { }
 }

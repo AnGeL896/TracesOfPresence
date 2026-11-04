@@ -11,6 +11,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -106,7 +108,14 @@ public final class EchoRecorder {
 
         DamageSource source = event.getSource();
         memory.putString("cause", source.getMsgId());
+        Entity direct = source.getDirectEntity();
         Entity attacker = source.getEntity();
+        if (attacker instanceof Projectile projectile && projectile.getOwner() != null) {
+            attacker = projectile.getOwner();
+        }
+        if (attacker == null && direct instanceof Projectile projectile) {
+            attacker = projectile.getOwner();
+        }
         if (attacker != null) {
             memory.putString("attacker_type", BuiltInRegistries.ENTITY_TYPE.getKey(attacker.getType()).toString());
             memory.putDouble("attacker_x", attacker.getX());
@@ -121,7 +130,6 @@ public final class EchoRecorder {
                 memory.put("attacker_frames", attackerFrames);
             }
         }
-        Entity direct = source.getDirectEntity();
         if (direct != null && direct != attacker) {
             memory.putString("direct_attacker_type",
                     BuiltInRegistries.ENTITY_TYPE.getKey(direct.getType()).toString());
@@ -201,6 +209,10 @@ public final class EchoRecorder {
             frame.putDouble("z", entity.getZ());
             frame.putFloat("yaw", entity.getYRot());
             frame.putFloat("pitch", entity.getXRot());
+            frame.putBoolean("aggressive", entity instanceof Mob mob && mob.isAggressive());
+            frame.putBoolean("swinging", entity.swinging);
+            frame.putInt("swing_time", entity.swingTime);
+            frame.putFloat("attack_anim", entity.attackAnim);
             track.frames.addLast(frame);
             while (track.frames.size() > RECORDING_TICKS) track.frames.removeFirst();
         }

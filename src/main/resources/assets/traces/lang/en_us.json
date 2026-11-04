@@ -13,5 +13,15 @@
   "message.traces.death_echo_drown": "The apparition drowned...",
   "message.traces.death_echo_lava": "The apparition was consumed by lava...",
   "message.traces.death_echo_fire": "The apparition burned to death...",
-  "message.traces.death_echo_cause": "Cause of death: %s"
+  "message.traces.death_echo_cause": "Cause of death: %s",
+  "message.traces.death_echo_killer_cause": "Killed by %s: %s",
+  "message.traces.death_cause_arrow": "shot by an arrow",
+  "message.traces.death_cause_melee": "struck by a mob",
+  "message.traces.death_cause_player": "attacked by a player",
+  "message.traces.death_cause_explosion": "caught in an explosion",
+  "message.traces.death_cause_fall": "fall damage",
+  "message.traces.death_cause_drown": "drowning",
+  "message.traces.death_cause_lava": "lava",
+  "message.traces.death_cause_fire": "fire",
+  "message.traces.death_cause_magic": "magic or wither"
 }

@@ -14,6 +14,11 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.monster.Skeleton;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.core.registries.BuiltInRegistries;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +35,8 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
             TracesOfPresence.MOD_ID, "textures/entity/apparition_red.png");
     private final ApparitionModel<ApparitionEntity> model;
     private final Map<String, Entity> killerVisuals = new HashMap<>();
+    private final Map<Entity, Integer> killerAnimationTicks = new HashMap<>();
+    private final Map<Entity, net.minecraft.world.phys.Vec3> killerPreviousPositions = new HashMap<>();
 
     public ApparitionRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -77,7 +84,14 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
             visual.setNoGravity(true);
             visual.setSilent(true);
             visual.setInvulnerable(true);
-            if (visual instanceof Mob mob) mob.setNoAi(true);
+            if (visual instanceof Mob mob) {
+                mob.setNoAi(true);
+                mob.setAggressive(true);
+            }
+            if (visual instanceof Skeleton skeleton) {
+                skeleton.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
+                skeleton.startUsingItem(InteractionHand.MAIN_HAND);
+            }
             killerVisuals.put(typeId, visual);
         }
         float x = echo.getKillerX(), y = echo.getKillerY(), z = echo.getKillerZ();
@@ -89,9 +103,25 @@ public final class ApparitionRenderer extends EntityRenderer<ApparitionEntity> {
         visual.setPos(x, y, z);
         visual.setYRot(yaw);
         visual.yRotO = yaw;
+        visual.tickCount = echo.tickCount;
         if (visual instanceof LivingEntity living) {
             living.setYHeadRot(yaw);
             living.yHeadRotO = yaw;
+            living.yBodyRot = yaw;
+            living.yBodyRotO = yaw;
+            living.swinging = echo.isKillerSwinging();
+            living.swingTime = echo.getKillerSwingTime();
+            living.swingingArm = InteractionHand.MAIN_HAND;
+            living.attackAnim = echo.getKillerAttackAnim();
+            living.oAttackAnim = echo.getKillerAttackAnim();
+            if (killerAnimationTicks.getOrDefault(visual, Integer.MIN_VALUE) != echo.tickCount) {
+                net.minecraft.world.phys.Vec3 current = new net.minecraft.world.phys.Vec3(x, y, z);
+                net.minecraft.world.phys.Vec3 previous = killerPreviousPositions.put(visual, current);
+                double distance = previous == null ? 0.0D : current.distanceTo(previous);
+                float gait = Mth.clamp((float) (distance * 4.0D), 0.0F, 1.0F);
+                living.walkAnimation.update(gait, (float) (distance * 4.0D));
+                killerAnimationTicks.put(visual, echo.tickCount);
+            }
         }
         float scale = echo.isCreeperDeath() && finalCue
                 ? 0.75F + 0.30F * Mth.clamp(cueTime / 38.0F, 0.0F, 1.0F) : 1.0F;
