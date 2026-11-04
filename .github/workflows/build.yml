@@ -2,9 +2,13 @@ name: Build mod
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+      - codex/apparition-v1
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+      - codex/apparition-v1
   workflow_dispatch:
 
 jobs:
