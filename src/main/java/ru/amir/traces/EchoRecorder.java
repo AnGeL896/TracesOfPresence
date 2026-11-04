@@ -40,7 +40,7 @@ import java.util.UUID;
 public final class EchoRecorder {
     public static final String DEATH_MEMORY_KEY = "traces_death_memory_v1";
 
-    private static final int RECORDING_TICKS = 5 * 20;
+    private static final int RECORDING_TICKS = 10 * 20;
     private static final int FRAME_INTERVAL_TICKS = 1;
     private static final int MAX_FRAMES = RECORDING_TICKS / FRAME_INTERVAL_TICKS;
     private static final int MAX_ACTIONS = 40;
