@@ -49,7 +49,7 @@ public final class EchoRecorder {
 
     private static final int RECORDING_TICKS = 10 * 20;
     private static final int FRAME_INTERVAL_TICKS = 1;
-    private static final int ENTITY_FRAME_INTERVAL_TICKS = 2;
+    private static final int ENTITY_FRAME_INTERVAL_TICKS = 1;
     private static final int MAX_FRAMES = RECORDING_TICKS / FRAME_INTERVAL_TICKS;
     private static final int MAX_ENTITY_FRAMES = RECORDING_TICKS / ENTITY_FRAME_INTERVAL_TICKS;
     private static final int MAX_ACTIONS = 40;
