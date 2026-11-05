@@ -1,6 +1,6 @@
 # Traces of Presence
 
-Minecraft Forge 1.20.1, version 0.5.23-alpha.1 (alpha build).
+Minecraft Forge 1.20.1, version 0.5.24-alpha.1 (alpha build).
 
 ## Echoes
 
@@ -9,6 +9,10 @@ Minecraft Forge 1.20.1, version 0.5.23-alpha.1 (alpha build).
 - **Red:** replays the last ten seconds before a player's death when they return nearby.
 
 Encounter chances and cooldowns are in `config/traces-common.toml`. Set a chance to `1.0` to force frequent eligible checks while testing.
+
+## Replay path update in 0.5.24-alpha.1
+
+- Death echoes and killers follow the recorded positions using linear interpolation. Synthetic approach motion and spline path bending are removed to avoid cutting through blocks.
 
 ## Testing the green echo
 
@@ -23,7 +27,7 @@ This creates a visual-only sample of mining, building, and crafting actions. It 
 ## Performance work in 0.5.15–0.5.23
 
 - Reuse a nearby Life Echo crystal while it remains loaded and within range.
-- Record nearby killer movement at 10 frames per second and prune stale tracks once per second.
+- Record nearby killer movement at full 20 frames per second and prune stale tracks once per second.
 - Reduce temporary allocations during nearby entity sampling.
 - Advance death and killer replay cursors incrementally instead of rescanning frames.
 - Cache replay equipment and block particle data; clear bounded client and server caches when their world or server ends.
