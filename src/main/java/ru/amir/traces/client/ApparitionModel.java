@@ -1,0 +1,161 @@
+package ru.amir.traces.client;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import ru.amir.traces.ApparitionEntity;
+import ru.amir.traces.TracesOfPresence;
+
+public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
+    public static final ModelLayerLocation LAYER = new ModelLayerLocation(
+            new ResourceLocation(TracesOfPresence.MOD_ID, "apparition"), "main");
+
+    private final ModelPart root;
+    private final ModelPart head;
+    private final ModelPart body;
+    private final ModelPart leftArm;
+    private final ModelPart rightArm;
+    private final ModelPart leftLeg;
+    private final ModelPart rightLeg;
+    private boolean deathReplay;
+    private boolean purpleEcho;
+
+    public ApparitionModel(ModelPart root) {
+        this.root = root;
+        head = root.getChild("head");
+        body = root.getChild("body");
+        leftArm = root.getChild("left_arm");
+        rightArm = root.getChild("right_arm");
+        leftLeg = root.getChild("left_leg");
+        rightLeg = root.getChild("right_leg");
+    }
+
+    public static LayerDefinition createLayer() {
+        MeshDefinition mesh = new MeshDefinition();
+        PartDefinition root = mesh.getRoot();
+
+        PartDefinition head = root.addOrReplaceChild("head", CubeListBuilder.create().texOffs(0, 0)
+                .addBox(-4, -8, -4, 8, 8, 8), PartPose.ZERO);
+        head.addOrReplaceChild("headwear", CubeListBuilder.create().texOffs(32, 0)
+                .addBox(-4, -8, -4, 8, 8, 8, new CubeDeformation(0.25F)), PartPose.ZERO);
+
+        PartDefinition body = root.addOrReplaceChild("body", CubeListBuilder.create().texOffs(16, 16)
+                .addBox(-4, 0, -2, 8, 12, 4), PartPose.ZERO);
+        body.addOrReplaceChild("jacket", CubeListBuilder.create().texOffs(16, 32)
+                .addBox(-4, 0, -2, 8, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+
+        PartDefinition rightArm = root.addOrReplaceChild("right_arm",
+                CubeListBuilder.create().texOffs(40, 16).mirror()
+                        .addBox(-3, -2, -2, 4, 12, 4), PartPose.offset(-5, 2, 0));
+        rightArm.addOrReplaceChild("right_sleeve", CubeListBuilder.create().texOffs(40, 32).mirror()
+                .addBox(-3, -2, -2, 4, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+        PartDefinition leftArm = root.addOrReplaceChild("left_arm",
+                CubeListBuilder.create().texOffs(32, 48)
+                        .addBox(-1, -2, -2, 4, 12, 4), PartPose.offset(5, 2, 0));
+        leftArm.addOrReplaceChild("left_sleeve", CubeListBuilder.create().texOffs(48, 48)
+                .addBox(-1, -2, -2, 4, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+
+        PartDefinition rightLeg = root.addOrReplaceChild("right_leg",
+                CubeListBuilder.create().texOffs(0, 16).mirror()
+                        .addBox(-2, 0, -2, 4, 12, 4), PartPose.offset(-2, 12, 0));
+        rightLeg.addOrReplaceChild("right_pants", CubeListBuilder.create().texOffs(0, 32).mirror()
+                .addBox(-2, 0, -2, 4, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+        PartDefinition leftLeg = root.addOrReplaceChild("left_leg",
+                CubeListBuilder.create().texOffs(16, 48)
+                        .addBox(-2, 0, -2, 4, 12, 4), PartPose.offset(2, 12, 0));
+        leftLeg.addOrReplaceChild("left_pants", CubeListBuilder.create().texOffs(0, 48)
+                .addBox(-2, 0, -2, 4, 12, 4, new CubeDeformation(0.25F)), PartPose.ZERO);
+
+        return LayerDefinition.create(mesh, 64, 64);
+    }
+
+    @Override
+    public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks,
+                          float netHeadYaw, float headPitch) {
+        ApparitionEntity apparition = entity instanceof ApparitionEntity echo ? echo : null;
+        deathReplay = apparition != null && apparition.isDeathReplay();
+        purpleEcho = apparition != null && apparition.isPurpleEcho();
+        float idleLook = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.045F) * 0.27F;
+        head.yRot = netHeadYaw * ((float) Math.PI / 180.0F) + idleLook;
+        float idlePitch = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.035F) * 0.06F;
+        head.xRot = headPitch * ((float) Math.PI / 180.0F) + idlePitch;
+        float walking = apparition != null ? apparition.getWalkBlend(limbSwing) : 0.0F;
+        float crouchBlend = deathReplay ? apparition.getReplayCrouchBlend(limbSwing) : 0.0F;
+        float sprintBlend = deathReplay ? apparition.getReplaySprintBlend(limbSwing) : 0.0F;
+        float fallBlend = deathReplay ? apparition.getReplayFallBlend(limbSwing) : 0.0F;
+        float deathCue = deathReplay ? apparition.getDeathCueTime(limbSwing) : -1.0F;
+        float collapse = deathCue < 0.0F ? 0.0F : Mth.clamp(deathCue / 18.0F, 0.0F, 1.0F);
+        collapse = collapse * collapse * (3.0F - 2.0F * collapse);
+        float sway = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.055F) * 0.04F;
+        float gaitPhase = deathReplay
+                ? apparition.getReplayLimbPhase(limbSwing) * 0.6662F
+                : ageInTicks * 0.28F;
+        float step = Mth.sin(gaitPhase) * walking;
+        float idleArmDrift = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.07F) * 0.035F;
+        head.zRot = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.04F) * 0.02F;
+        body.zRot = sway;
+        float deathFlinch = deathReplay && apparition.getGlowIntensity(0.0F) > 0.25F
+                ? apparition.getGlowIntensity(0.0F) * 0.16F : 0.0F;
+        float uprightLean = Mth.lerp(sprintBlend, -0.035F * walking, -0.10F);
+        body.xRot = Mth.lerp(crouchBlend, uprightLean, 0.22F) - deathFlinch - 0.18F * fallBlend;
+        body.y = crouchBlend * 1.5F;
+        head.y = -crouchBlend;
+        float armSwing = Mth.lerp(sprintBlend, 0.24F, 0.28F);
+        float secondaryArmDrift = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.07F + 1.2F) * 0.035F;
+        leftArm.xRot = -0.10F - step * armSwing * (1.0F - fallBlend) + idleArmDrift - 0.30F * fallBlend;
+        rightArm.xRot = -0.08F + step * armSwing * (1.0F - fallBlend) + secondaryArmDrift - 0.30F * fallBlend;
+        leftArm.zRot = 0.08F + sway - 0.30F * fallBlend;
+        rightArm.zRot = -0.08F + sway + 0.30F * fallBlend;
+        if (apparition != null && apparition.isWorkReplay()) {
+            float beat = Mth.sin(ageInTicks * 0.48F);
+            switch (apparition.getGreenAction()) {
+                case 1 -> {
+                    rightArm.xRot = -1.72F + beat * 0.32F;
+                    rightArm.yRot = -0.08F;
+                    leftArm.xRot = -0.42F - beat * 0.12F;
+                    head.xRot += 0.10F;
+                }
+                case 2 -> {
+                    rightArm.xRot = -1.05F + beat * 0.12F;
+                    leftArm.xRot = -0.68F;
+                    rightArm.yRot = -0.10F;
+                }
+                case 3 -> {
+                    rightArm.xRot = -0.78F + beat * 0.08F;
+                    leftArm.xRot = -0.78F - beat * 0.08F;
+                    rightArm.yRot = -0.20F;
+                    leftArm.yRot = 0.20F;
+                }
+                default -> { }
+            }
+        }
+        leftLeg.xRot = step * 0.34F * (1.0F - fallBlend) - 0.18F * collapse;
+        rightLeg.xRot = -leftLeg.xRot - 0.08F * collapse;
+        body.xRot += 0.32F * collapse;
+        body.zRot += Mth.sin(deathCue * 0.30F) * 0.08F * (1.0F - collapse);
+        head.xRot += 0.12F * collapse;
+        leftArm.xRot += 0.46F * collapse;
+        rightArm.xRot += 0.40F * collapse;
+        leftArm.zRot -= 0.22F * collapse;
+        rightArm.zRot += 0.22F * collapse;
+    }
+
+    @Override
+    public void renderToBuffer(PoseStack pose, VertexConsumer consumer, int packedLight, int packedOverlay,
+                               float red, float green, float blue, float alpha) {
+        root.render(pose, consumer, packedLight, OverlayTexture.NO_OVERLAY,
+                purpleEcho ? 0.78F : 1.0F, purpleEcho ? 0.34F : 1.0F, 1.0F, alpha);
+    }
+}

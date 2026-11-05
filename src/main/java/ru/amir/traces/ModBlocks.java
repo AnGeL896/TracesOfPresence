@@ -15,10 +15,18 @@ public class ModBlocks {
 
     public static final RegistryObject<Block> LIFE_ECHO =
             BLOCKS.register("life_echo",
-                    () -> new Block(BlockBehaviour.Properties.of()
+                    () -> new LifeEchoBlock(BlockBehaviour.Properties.of()
                             .strength(1.5f)
                             .sound(SoundType.AMETHYST)
                             .lightLevel(state -> 8)
                             .noOcclusion()
+                            .noCollission()
+                    ));
+
+    public static final RegistryObject<Block> DEATH_SCAR =
+            BLOCKS.register("death_scar",
+                    () -> new Block(BlockBehaviour.Properties.of()
+                            .strength(0.3F)
+                            .sound(SoundType.GRASS)
                     ));
 }
