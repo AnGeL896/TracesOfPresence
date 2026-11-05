@@ -43,6 +43,7 @@ public final class ApparitionEntity extends Entity {
     private static final double ARRIVAL_DISTANCE = 0.55D;
     private static final double REPLAY_TIME_SCALE = 0.68D;
     private static final int DEATH_CUE_TICKS = 40;
+    private static final int PURPLE_ECHO_FADE_START_TICK = 50;
     private static final DustParticleOptions GREEN_WORK_DUST =
             new DustParticleOptions(new Vector3f(0.10F, 0.95F, 0.35F), 0.8F);
 
@@ -69,6 +70,8 @@ public final class ApparitionEntity extends Entity {
     private static final EntityDataAccessor<Boolean> REPLAY_SPRINTING =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Boolean> GREEN_ECHO =
+            SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> PURPLE_ECHO =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<String> KILLER_TYPE =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.STRING);
@@ -159,6 +162,7 @@ public final class ApparitionEntity extends Entity {
         entityData.define(REPLAY_LIMB_PHASE, 0.0F);
         entityData.define(REPLAY_SPRINTING, false);
         entityData.define(GREEN_ECHO, false);
+        entityData.define(PURPLE_ECHO, false);
         entityData.define(KILLER_TYPE, "");
         entityData.define(KILLER_X, 0.0F);
         entityData.define(KILLER_Y, 0.0F);
@@ -253,6 +257,9 @@ public final class ApparitionEntity extends Entity {
     public void setGreenEcho() {
         entityData.set(GREEN_ECHO, true);
     }
+
+    public boolean isPurpleEcho() { return entityData.get(PURPLE_ECHO); }
+    public void setPurpleEcho() { entityData.set(PURPLE_ECHO, true); }
 
     public boolean isWorkReplay() { return entityData.get(WORK_REPLAY); }
     public int getGreenAction() { return entityData.get(GREEN_ACTION); }
@@ -656,6 +663,11 @@ public final class ApparitionEntity extends Entity {
 
     private void tickServer() {
         int vanishTick = entityData.get(VANISH_TICK);
+        if (isPurpleEcho()) {
+            if (vanishTick < 0 && tickCount >= PURPLE_ECHO_FADE_START_TICK) beginDissolve();
+            if (vanishTick >= 0 && tickCount - vanishTick >= VANISH_DURATION_TICKS) discard();
+            return;
+        }
         if (isDeathReplay() && entityData.get(FLARE_TICK) < 0) {
             int cueTick = entityData.get(DEATH_CUE_TICK);
             if (cueTick >= 0) {
@@ -800,7 +812,12 @@ public final class ApparitionEntity extends Entity {
         entityData.set(WALKING, false);
         if (level() instanceof ServerLevel serverLevel) {
             Vec3 at = position().add(0.0D, 0.9D, 0.0D);
-            if (isDeathReplay()) {
+            if (isPurpleEcho()) {
+                DustParticleOptions purpleDust = new DustParticleOptions(new Vector3f(0.62F, 0.16F, 0.95F), 1.05F);
+                serverLevel.sendParticles(purpleDust, at.x, at.y, at.z, 26, 0.36D, 0.78D, 0.36D, 0.02D);
+                serverLevel.sendParticles(ParticleTypes.WITCH, at.x, at.y, at.z, 20, 0.36D, 0.78D, 0.36D, 0.012D);
+                serverLevel.sendParticles(ParticleTypes.PORTAL, at.x, at.y, at.z, 14, 0.30D, 0.72D, 0.30D, 0.018D);
+            } else if (isDeathReplay()) {
                 DustParticleOptions redDust = new DustParticleOptions(new Vector3f(0.95F, 0.04F, 0.025F), 1.15F);
                 serverLevel.sendParticles(redDust, at.x, at.y, at.z, 24, 0.34D, 0.72D, 0.34D, 0.018D);
                 serverLevel.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z,
@@ -844,7 +861,8 @@ public final class ApparitionEntity extends Entity {
                     ? 1.0F
                     : smoothStep((160.0F - age) / 60.0F);
         float glow = getGlowIntensity(partialTick);
-        float opacity = isDeathReplay() ? (glow > 0.0F ? 0.48F + 0.42F * glow : 0.48F)
+        float opacity = isPurpleEcho() ? 0.62F
+                : isDeathReplay() ? (glow > 0.0F ? 0.48F + 0.42F * glow : 0.48F)
                 : isGreenEcho() ? (glow > 0.0F ? 0.55F + 0.35F * glow : 0.55F)
                 : (glow > 0.0F ? 0.42F + 0.40F * glow : 0.42F);
         return Math.min(fadeIn, fadeOut) * opacity;
@@ -859,6 +877,7 @@ public final class ApparitionEntity extends Entity {
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
+        entityData.set(PURPLE_ECHO, tag.getBoolean("traces_purple_echo"));
         if (tag.getBoolean("traces_death_replay")) {
             ListTag frames = tag.getList("traces_replay_frames", Tag.TAG_COMPOUND);
             if (frames.size() >= 2) {
@@ -871,6 +890,7 @@ public final class ApparitionEntity extends Entity {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        if (isPurpleEcho()) tag.putBoolean("traces_purple_echo", true);
         if (!isDeathReplay() || replayFrames.isEmpty()) return;
         tag.putBoolean("traces_death_replay", true);
         tag.putDouble("traces_replay_elapsed", replayElapsedTime);
