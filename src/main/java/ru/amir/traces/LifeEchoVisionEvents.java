@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -18,7 +19,8 @@ import net.minecraftforge.fml.common.Mod;
 public final class LifeEchoVisionEvents {
     private static final String SEEN_KEY = "traces_seen_life_echo_crystals";
     private static final String PENDING_KEY = "traces_pending_life_echo_vision";
-    private static final int BLINDNESS_TICKS = 20;
+    private static final int BLINDNESS_TICKS = 40;
+    private static final double SPAWN_DISTANCE = 7.5D;
 
     @SubscribeEvent
     public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
@@ -41,8 +43,30 @@ public final class LifeEchoVisionEvents {
             data.remove(PENDING_KEY);
             ApparitionEntity apparition = ModEntities.APPARITION.get().create(level);
             if (apparition != null) {
-                apparition.moveTo(pending.getDouble("x"), pending.getDouble("y"), pending.getDouble("z"),
-                        player.getYRot(), 0.0F);
+                double playerX = pending.getDouble("playerX");
+                double playerY = pending.getDouble("playerY");
+                double playerZ = pending.getDouble("playerZ");
+                float yaw = pending.getFloat("yaw");
+
+                double radians = Math.toRadians(yaw);
+                double forwardX = -Math.sin(radians);
+                double forwardZ = Math.cos(radians);
+                double targetX = playerX + forwardX * SPAWN_DISTANCE;
+                double targetZ = playerZ + forwardZ * SPAWN_DISTANCE;
+
+                BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                        BlockPos.containing(targetX, playerY, targetZ));
+                BlockPos spawnPos = surface.above();
+
+                if (!level.isEmptyBlock(spawnPos) || !level.isEmptyBlock(spawnPos.above())) {
+                    BlockPos fallback = findSafeSpawn(level, targetX, targetZ, surface);
+                    if (fallback != null) {
+                        spawnPos = fallback;
+                    }
+                }
+
+                apparition.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D,
+                        yaw, 0.0F);
                 apparition.setPurpleEcho();
                 level.addFreshEntity(apparition);
             }
@@ -70,14 +94,30 @@ public final class LifeEchoVisionEvents {
                     CompoundTag pending = new CompoundTag();
                     pending.putInt("ticks", BLINDNESS_TICKS);
                     pending.putString("dimension", level.dimension().location().toString());
-                    pending.putDouble("x", pos.getX() + 0.5D);
-                    pending.putDouble("y", pos.getY());
-                    pending.putDouble("z", pos.getZ() + 0.5D);
+                    pending.putDouble("playerX", player.getX());
+                    pending.putDouble("playerY", player.getY());
+                    pending.putDouble("playerZ", player.getZ());
+                    pending.putFloat("yaw", player.getYRot());
                     data.put(PENDING_KEY, pending);
                     return;
                 }
             }
         }
+    }
+
+    private static BlockPos findSafeSpawn(ServerLevel level, double targetX, double targetZ, BlockPos surface) {
+        for (int radius = 1; radius <= 3; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) continue;
+                    BlockPos checkPos = surface.offset(dx, 0, dz).above();
+                    if (level.isEmptyBlock(checkPos) && level.isEmptyBlock(checkPos.above())) {
+                        return checkPos;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private LifeEchoVisionEvents() { }

@@ -63,7 +63,7 @@ public final class GreenEchoDirector {
         }
     }
 
-    private static ListTag collectNearbyWork(ServerPlayer player, long now) {
+    private static ListTag collectNearbyWork(ServerLevel player, long now) {
         ListTag saved = EchoRecorder.getRecentWorkActions(player);
         ListTag nearby = new ListTag();
         long newestAction = Long.MIN_VALUE;
