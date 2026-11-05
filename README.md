@@ -1,6 +1,6 @@
 # Traces of Presence
 
-Minecraft Forge 1.20.1, version 0.5.24-alpha.1 (alpha build).
+Minecraft Forge 1.20.1, version 0.5.25-alpha.1 (alpha build).
 
 ## Echoes
 
@@ -10,9 +10,13 @@ Minecraft Forge 1.20.1, version 0.5.24-alpha.1 (alpha build).
 
 Encounter chances and cooldowns are in `config/traces-common.toml`. Set a chance to `1.0` to force frequent eligible checks while testing.
 
-## Replay path update in 0.5.24-alpha.1
+## Replay path update in 0.5.25-alpha.1
 
 - Death echoes and killers follow the recorded positions using linear interpolation. Synthetic approach motion and spline path bending are removed to avoid cutting through blocks.
+
+## Crystal texture update in 0.5.25-alpha.1
+
+- Replaces the crystal texture with a hand-pixelled 32×32 teal mineral surface inspired by the supplied icy reference; the existing crystal geometry is unchanged.
 
 ## Testing the green echo
 
