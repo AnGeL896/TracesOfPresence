@@ -30,6 +30,7 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     private final ModelPart leftLeg;
     private final ModelPart rightLeg;
     private boolean deathReplay;
+    private boolean purpleEcho;
 
     public ApparitionModel(ModelPart root) {
         this.root = root;
@@ -85,6 +86,7 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
                           float netHeadYaw, float headPitch) {
         ApparitionEntity apparition = entity instanceof ApparitionEntity echo ? echo : null;
         deathReplay = apparition != null && apparition.isDeathReplay();
+        purpleEcho = apparition != null && apparition.isPurpleEcho();
         float idleLook = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.045F) * 0.27F;
         head.yRot = netHeadYaw * ((float) Math.PI / 180.0F) + idleLook;
         float idlePitch = deathReplay ? 0.0F : Mth.sin(ageInTicks * 0.035F) * 0.06F;
@@ -154,6 +156,6 @@ public final class ApparitionModel<T extends Entity> extends EntityModel<T> {
     public void renderToBuffer(PoseStack pose, VertexConsumer consumer, int packedLight, int packedOverlay,
                                float red, float green, float blue, float alpha) {
         root.render(pose, consumer, packedLight, OverlayTexture.NO_OVERLAY,
-                1.0F, 1.0F, 1.0F, alpha);
+                purpleEcho ? 0.78F : 1.0F, purpleEcho ? 0.34F : 1.0F, 1.0F, alpha);
     }
 }
