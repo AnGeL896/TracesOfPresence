@@ -118,7 +118,6 @@ public final class ApparitionEntity extends Entity {
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<BlockPos> GREEN_TARGET =
             SynchedEntityData.defineId(ApparitionEntity.class, EntityDataSerializers.BLOCK_POS);
-    private float killerStartDistance = 6.0F;
 
     private double currentWalkSpeed;
     private float previousWalkBlend;
@@ -340,7 +339,6 @@ public final class ApparitionEntity extends Entity {
         entityData.set(REPLAY_FALLING, false);
         entityData.set(DEATH_CUE_TICK, -1);
         entityData.set(DEATH_REPLAY, true);
-        killerStartDistance = 3.0F + level().random.nextFloat() * 9.0F;
         replayElapsedTime = 0.0D;
         return true;
     }
@@ -537,9 +535,9 @@ public final class ApparitionEntity extends Entity {
         float amount = (float) (targetTime - from.time()) / Math.max(1L, to.time() - from.time());
         double oldX = getX();
         double oldZ = getZ();
-        double x = interpolatePosition(index, amount, 0);
-        double y = interpolatePosition(index, amount, 1);
-        double z = interpolatePosition(index, amount, 2);
+        double x = Mth.lerp(amount, from.x(), to.x());
+        double y = Mth.lerp(amount, from.y(), to.y());
+        double z = Mth.lerp(amount, from.z(), to.z());
         setPos(x, y, z);
         setYRot(Mth.rotLerp(amount, from.yaw(), to.yaw()));
         setXRot(Mth.lerp(amount, from.pitch(), to.pitch()));
@@ -569,11 +567,11 @@ public final class ApparitionEntity extends Entity {
         KillerFrame to = index + 1 < killerFrames.size() ? killerFrames.get(index + 1) : from;
         float amount = to.time() == from.time() ? 0.0F
                 : Mth.clamp((float) ((targetTime - from.time()) / (to.time() - from.time())), 0.0F, 1.0F);
+        KillerFrame attack = amount < 0.5F ? from : to;
         entityData.set(KILLER_X, (float) Mth.lerp(amount, from.x(), to.x()));
         entityData.set(KILLER_Y, (float) Mth.lerp(amount, from.y(), to.y()));
         entityData.set(KILLER_Z, (float) Mth.lerp(amount, from.z(), to.z()));
         entityData.set(KILLER_YAW, Mth.rotLerp(amount, from.yaw(), to.yaw()));
-        KillerFrame attack = amount < 0.5F ? from : to;
         entityData.set(KILLER_SWINGING, attack.swinging());
         entityData.set(KILLER_SWING_TIME, attack.swingTime());
         entityData.set(KILLER_MAIN_HAND, attack.mainHand());
@@ -583,61 +581,8 @@ public final class ApparitionEntity extends Entity {
         entityData.set(KILLER_LEGS, attack.legs());
         entityData.set(KILLER_FEET, attack.feet());
         entityData.set(KILLER_BABY, attack.baby());
-        boolean ranged = getKillerType().equals("minecraft:skeleton")
-                || attack.mainHand().equals("minecraft:bow") || attack.mainHand().equals("minecraft:crossbow")
-                || attack.mainHand().equals("minecraft:trident");
-        float cue = (float) (targetTime - replayFrames.get(0).time());
-        float playbackLength = replayFrames.get(replayFrames.size() - 1).time() - replayFrames.get(0).time();
-        float approach = smoothStep(cue / Math.max(1.0F, playbackLength * 0.8F));
-        float wantedDistance = ranged ? killerStartDistance : Mth.lerp(approach, killerStartDistance, 1.05F);
-        double dx = Mth.lerp(amount, from.x(), to.x()) - getX();
-        double dz = Mth.lerp(amount, from.z(), to.z()) - getZ();
-        double length = Math.sqrt(dx * dx + dz * dz);
-        if (length < 0.001D) { dx = -Math.sin(Math.toRadians(getYRot())); dz = Math.cos(Math.toRadians(getYRot())); length = 1.0D; }
-        entityData.set(KILLER_X, (float) (getX() + dx / length * wantedDistance));
-        entityData.set(KILLER_Z, (float) (getZ() + dz / length * wantedDistance));
-        entityData.set(KILLER_Y, (float) Mth.lerp(amount, from.y(), to.y()));
-        float attackPulse = ranged
-                ? (float) Math.max(0.0D, Math.sin((cue + 4.0D) * Math.PI / 18.0D))
-                : 1.0F - smoothStep(Math.abs(cue - (playbackLength - 7.0F)) / 9.0F);
-        entityData.set(KILLER_SWINGING, attack.swinging() || attackPulse > 0.18F);
-        entityData.set(KILLER_SWING_TIME, attack.swingTime());
-        entityData.set(KILLER_ATTACK_ANIM, Math.max(attack.attackAnim(), attackPulse));
+        entityData.set(KILLER_ATTACK_ANIM, attack.attackAnim());
         entityData.set(KILLER_VISIBLE, true);
-    }
-
-    private double interpolatePosition(int frameIndex, float amount, int axis) {
-        ReplayFrame from = replayFrames.get(frameIndex);
-        ReplayFrame to = replayFrames.get(frameIndex + 1);
-        ReplayFrame previous = frameIndex > 0 ? replayFrames.get(frameIndex - 1) : from;
-        ReplayFrame next = frameIndex + 2 < replayFrames.size()
-                ? replayFrames.get(frameIndex + 2) : to;
-
-        double duration = Math.max(1L, to.time() - from.time());
-        double previousDuration = Math.max(1L, to.time() - previous.time());
-        double nextDuration = Math.max(1L, next.time() - from.time());
-        double start = replayCoordinate(from, axis);
-        double end = replayCoordinate(to, axis);
-        double startTangent = (end - replayCoordinate(previous, axis)) * duration / previousDuration;
-        double endTangent = (replayCoordinate(next, axis) - start) * duration / nextDuration;
-
-        double t2 = amount * amount;
-        double t3 = t2 * amount;
-        double spline = (2.0D * t3 - 3.0D * t2 + 1.0D) * start
-                + (t3 - 2.0D * t2 + amount) * startTangent
-                + (-2.0D * t3 + 3.0D * t2) * end
-                + (t3 - t2) * endTangent;
-        double linear = Mth.lerp(amount, start, end);
-        double bounded = Mth.clamp(spline, Math.min(start, end), Math.max(start, end));
-        return Mth.lerp(0.38D, linear, bounded);
-    }
-
-    private static double replayCoordinate(ReplayFrame frame, int axis) {
-        return switch (axis) {
-            case 0 -> frame.x();
-            case 1 -> frame.y();
-            default -> frame.z();
-        };
     }
 
     private void beginDeathCue() {
