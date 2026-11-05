@@ -19,7 +19,10 @@ import net.minecraftforge.fml.common.Mod;
 public final class LifeEchoVisionEvents {
     private static final String SEEN_KEY = "traces_seen_life_echo_crystals";
     private static final String PENDING_KEY = "traces_pending_life_echo_vision";
+    private static final String RETRY_CRYSTAL_KEY = "traces_life_echo_retry_crystal";
+    private static final String RETRY_AFTER_KEY = "traces_life_echo_retry_after";
     private static final int BLINDNESS_TICKS = 40;
+    private static final int SPAWN_RETRY_DELAY_TICKS = 100;
     private static final double SPAWN_DISTANCE = 7.5D;
 
     @SubscribeEvent
@@ -42,34 +45,37 @@ public final class LifeEchoVisionEvents {
 
             data.remove(PENDING_KEY);
             ApparitionEntity apparition = ModEntities.APPARITION.get().create(level);
-            if (apparition != null) {
-                double playerX = pending.getDouble("playerX");
-                double playerY = pending.getDouble("playerY");
-                double playerZ = pending.getDouble("playerZ");
-                float yaw = pending.getFloat("yaw");
-
-                double radians = Math.toRadians(yaw);
-                double forwardX = -Math.sin(radians);
-                double forwardZ = Math.cos(radians);
-                double targetX = playerX + forwardX * SPAWN_DISTANCE;
-                double targetZ = playerZ + forwardZ * SPAWN_DISTANCE;
-
-                BlockPos surface = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                        BlockPos.containing(targetX, playerY, targetZ));
-                BlockPos spawnPos = surface.above();
-
-                if (!level.isEmptyBlock(spawnPos) || !level.isEmptyBlock(spawnPos.above())) {
-                    BlockPos fallback = findSafeSpawn(level, targetX, targetZ, surface);
-                    if (fallback != null) {
-                        spawnPos = fallback;
-                    }
-                }
-
-                apparition.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D,
-                        yaw, 0.0F);
-                apparition.setPurpleEcho();
-                level.addFreshEntity(apparition);
+            if (apparition == null) {
+                scheduleRetry(data, pending, level);
+                return;
             }
+
+            double playerX = pending.getDouble("playerX");
+            double playerY = pending.getDouble("playerY");
+            double playerZ = pending.getDouble("playerZ");
+            float yaw = pending.getFloat("yaw");
+            double radians = Math.toRadians(yaw);
+            double targetX = playerX - Math.sin(radians) * SPAWN_DISTANCE;
+            double targetZ = playerZ + Math.cos(radians) * SPAWN_DISTANCE;
+            BlockPos spawnPos = findSafeSpawn(level, targetX, targetZ, playerY, apparition);
+            if (spawnPos == null) {
+                scheduleRetry(data, pending, level);
+                return;
+            }
+
+            apparition.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D,
+                    yaw, 0.0F);
+            apparition.setPurpleEcho();
+            if (!level.addFreshEntity(apparition)) {
+                scheduleRetry(data, pending, level);
+                return;
+            }
+
+            CompoundTag seen = data.getCompound(SEEN_KEY);
+            seen.putBoolean(pending.getString("crystal"), true);
+            data.put(SEEN_KEY, seen);
+            data.remove(RETRY_CRYSTAL_KEY);
+            data.remove(RETRY_AFTER_KEY);
             return;
         }
 
@@ -84,8 +90,8 @@ public final class LifeEchoVisionEvents {
 
                     String crystalKey = level.dimension().location() + "|" + pos.asLong();
                     if (seen.getBoolean(crystalKey)) continue;
-                    seen.putBoolean(crystalKey, true);
-                    data.put(SEEN_KEY, seen);
+                    if (crystalKey.equals(data.getString(RETRY_CRYSTAL_KEY))
+                            && level.getGameTime() < data.getLong(RETRY_AFTER_KEY)) continue;
 
                     player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS,
                             BLINDNESS_TICKS, 0, false, false, false));
@@ -98,6 +104,7 @@ public final class LifeEchoVisionEvents {
                     pending.putDouble("playerY", player.getY());
                     pending.putDouble("playerZ", player.getZ());
                     pending.putFloat("yaw", player.getYRot());
+                    pending.putString("crystal", crystalKey);
                     data.put(PENDING_KEY, pending);
                     return;
                 }
@@ -105,19 +112,40 @@ public final class LifeEchoVisionEvents {
         }
     }
 
-    private static BlockPos findSafeSpawn(ServerLevel level, double targetX, double targetZ, BlockPos surface) {
-        for (int radius = 1; radius <= 3; radius++) {
+    private static BlockPos findSafeSpawn(ServerLevel level, double targetX, double targetZ,
+                                          double playerY, ApparitionEntity apparition) {
+        int centerX = Mth.floor(targetX);
+        int centerZ = Mth.floor(targetZ);
+        for (int radius = 0; radius <= 3; radius++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) continue;
-                    BlockPos checkPos = surface.offset(dx, 0, dz).above();
-                    if (level.isEmptyBlock(checkPos) && level.isEmptyBlock(checkPos.above())) {
-                        return checkPos;
-                    }
+                    int x = centerX + dx;
+                    int z = centerZ + dz;
+                    BlockPos feet = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                            BlockPos.containing(x, playerY, z));
+                    BlockPos ground = feet.below();
+                    BlockPos head = feet.above();
+                    if (feet.getY() <= level.getMinBuildHeight()
+                            || head.getY() >= level.getMaxBuildHeight()
+                            || !level.getWorldBorder().isWithinBounds(feet)
+                            || !level.getBlockState(ground).blocksMotion()
+                            || !level.getFluidState(feet).isEmpty()
+                            || !level.getFluidState(head).isEmpty()
+                            || !level.isEmptyBlock(feet)
+                            || !level.isEmptyBlock(head)) continue;
+
+                    apparition.setPos(x + 0.5D, feet.getY(), z + 0.5D);
+                    if (level.noCollision(apparition)) return feet;
                 }
             }
         }
         return null;
+    }
+
+    private static void scheduleRetry(CompoundTag data, CompoundTag pending, ServerLevel level) {
+        data.putString(RETRY_CRYSTAL_KEY, pending.getString("crystal"));
+        data.putLong(RETRY_AFTER_KEY, level.getGameTime() + SPAWN_RETRY_DELAY_TICKS);
     }
 
     private LifeEchoVisionEvents() { }
