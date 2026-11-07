@@ -1,105 +1,46 @@
-# Traces of Presence
+# TracesOfPresence
 
-Minecraft Forge 1.20.1, version 0.6.35-alpha.1 (alpha build).
+TracesOfPresence is an actively developed Minecraft Forge mod for Minecraft Java Edition 1.20.1. It adds brief encounters with apparitions shaped by traces of life, memory, and presence.
 
-## Echoes
+## About TracesOfPresence
 
-- **Blue:** may appear at night near a Life Echo crystal when several trees are nearby, and tries to hide behind a tree.
-- **Purple:** first interaction with a Life Echo crystal triggers a brief blindness vision before the apparition appears. If a safe spawn spot is unavailable, the player gets a fleeting doubt and the apparition retries after five seconds.
-- **Green:** can replay recent mining, block placement, and crafting actions around a coherent work site in any dimension, with travel time scaled to the distance between actions.
-- **Red:** replays the last ten seconds before a player's death when they return nearby.
+The mod explores a simple idea: someone may have been here before you. Its phenomena appear in the world as fleeting echoes rather than ordinary hostile mobs.
 
-Encounter chances and cooldowns are in `config/traces-common.toml`. Set a chance to `1.0` to force frequent eligible checks while testing.
+## Atmosphere and design philosophy
 
-## Building
+TracesOfPresence aims for light fantasy, quiet mystery, cozy melancholy, and a sense of wonder. It is **not a horror mod**. The encounters are meant to feel like fragments of another life left in the world.
 
-Use JDK 17 and the Gradle wrapper:
+## The four phenomena
 
-```
-.\gradlew.bat build
-```
+- **Blue** — In the Overworld at night, the Blue Echo can appear near a Life Echo crystal in a densely wooded area. It walks toward a nearby tree and fades with a brief visual effect.
+- **Purple** — Interacting with a Life Echo crystal can trigger a short vision. A Purple Echo then appears at a safe spot ahead of the player; if no suitable spot is available, the appearance is retried. Approaching the apparition reveals a brief message before it disappears.
+- **Green** — The Green Echo can replay a selection of a player's recent mining, block placement, and crafting actions after a sustained period of work and inactivity.
+- **Red** — The Red Echo can replay a recorded death after the player returns near the place of death. The recording includes the player's recent movement and nearby events. A death-site mark may also appear on suitable natural ground.
 
-On macOS or Linux, run `sh gradlew build`. The wrapper downloads the project's pinned Gradle version on its first run.
+## Implemented features
 
-## Replay path update in 0.5.25-alpha.1
+- Life Echo crystals generate with an irregular, mossy forest-floor site.
+- Blue, Purple, Green, and Red apparition encounters are implemented.
+- The Blue Echo's appearance chances and cooldown, and the Green Echo's enablement, chances, and cooldown, can be configured.
+- Operators can preview the apparition types with `/traces test blue`, `/traces test purple`, `/traces test green`, and `/traces test red`.
+- The item `traces:blue_shard` is registered and appears in the mod's creative tab. It currently uses a technical model with Minecraft's blue-ice texture as a placeholder; its finished visual design is not available yet. For testing, use `/give @s traces:blue_shard`.
 
-- Death echoes and killers follow the recorded positions using linear interpolation. Synthetic approach motion and spline path bending are removed to avoid cutting through blocks.
+## Currently in development
 
-## Crystal texture update in 0.5.25-alpha.1
+The planned Blue Echo story, **“A Quiet Place,”** is not implemented. The Blue Shard is registered, but it has no survival acquisition method and does not yet unlock a story encounter. The shard's finished visual design is also pending.
 
-- Replaces the crystal texture with a hand-pixelled 32×32 teal mineral surface inspired by the supplied icy reference; the existing crystal geometry is unchanged.
+## Installation
 
-## Apparition texture restoration in 0.5.26-alpha.1
+1. Install Minecraft Java Edition 1.20.1 and a compatible Forge 1.20.1 installation.
+2. Obtain a TracesOfPresence JAR from a project build.
+3. Place the JAR in the Minecraft `mods` folder and launch the Forge profile.
 
-- Restores the blue, green, and red apparition textures used by the entity renderer.
+No verified public release download is listed here. To build from the source repository, use JDK 17 and the included Gradle wrapper: `gradlew build` (Windows: `gradlew.bat build`).
 
-## Testing apparitions
+## Project status
 
-With cheats enabled or as an operator, test an apparition with:
+The mod is in active alpha development. Existing encounters are being refined while new story content is planned. Back up worlds before testing development builds.
 
-```
-/traces test blue
-/traces test purple
-/traces test green
-/traces test red
-```
+## Changelog
 
-The red test replays a synthetic player path and zombie attack. These tests are visual-only and do not change blocks or cause damage. The blue test still needs a suitable nearby tree as cover. Only one apparition test can be active within 48 blocks at a time.
-
-## Apparition test commands in 0.5.27-alpha.1
-
-- Adds `/traces test blue`, `purple`, and `red` alongside the existing green test.
-
-## Death scar texture in 0.5.28-alpha.1
-
-- Adds a transparent, pixel-art earth mark over the podzol death-scar block.
-
-## Purple Echo spawn range in 0.5.29-alpha.1
-
-- Search only for a safe floor near the player's current elevation and within one block of the point ahead, rather than using the surface heightmap.
-- If no suitable spot is available, show the existing doubt message and retry after five seconds.
-
-## Purple Echo encounter in 0.6.29-alpha.1
-
-- The echo appears 10–12 blocks ahead of the player. If no safe spot is available at that distance, it retries after five seconds.
-- Approaching within 1.5 blocks triggers “I was here before you” once.
-- The echo dissolves when its summoning player moves more than 30 blocks away; that crystal cannot summon it again after a successful spawn.
-
-## Purple Echo lifetime fix in 0.6.30-alpha.1
-
-- Keep the model visible until the summoning player approaches or moves beyond 30 blocks; do not apply the generic apparition fade timer.
-- Stop emitting ambient particles while the purple echo dissolves.
-
-## Purple Echo approach ending in 0.6.31-alpha.1
-
-- After the summoning player approaches within 1.5 blocks and sees “I was here before you,” the echo begins dissolving.
-
-## Colored apparition messages in 0.6.32-alpha.1
-
-- Color chat lines and test feedback to match their apparition: blue, green, purple, or red.
-
-## Blue Echo habitat and hiding time in 0.6.33-alpha.1
-
-- Allow the blue echo anywhere in the Overworld with at least four nearby tree trunks, instead of limiting it to forest and taiga biome tags.
-- Extend its time to reach tree cover from 11 to 30 seconds.
-
-## Green Echo rarity in 0.6.34-alpha.1
-
-- Require at least 10 recent actions, including 8 block placements or breaks across 6 distinct positions, over at least one minute of work.
-- Wait 15 seconds after the last action and reduce the eligible-check chance from 8% to 2%.
-
-## Blue Shard item model in 0.6.35-alpha.1
-
-- Adds the Blue Shard item to the Traces of Presence creative tab as the first item for the blue echo story.
-- Gives it a custom, floating ice-fragment model using Minecraft's blue ice texture as a temporary material until the author-provided texture is added.
-- The shard does not yet have a survival acquisition method; it can be inspected in Creative or obtained with `/give @s traces:blue_shard` for testing.
-
-## Performance work in 0.5.15–0.5.23
-
-- Reuse a nearby Life Echo crystal while it remains loaded and within range.
-- Record nearby killer movement at full 20 frames per second and prune stale tracks once per second.
-- Reduce temporary allocations during nearby entity sampling.
-- Advance death and killer replay cursors incrementally instead of rescanning frames.
-- Cache replay equipment and block particle data; clear bounded client and server caches when their world or server ends.
-- Bound renderer caches and reset world-bound visual entities when switching worlds.
-
+See [CHANGELOG.md](CHANGELOG.md) for confirmed development milestones and the current in-progress work.
